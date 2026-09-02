@@ -17,18 +17,14 @@ local NOTIFY = "opx77_notify"
 --- nothing raises an event for.
 local WATCH_MS = 200
 
---- The last millisecond reading the host gave, so a clock that fails freezes rather than
---- resets: a deadline that stops advancing holds, and one that resets to zero fires at once.
-local lastMs = 0
-
---- The monotonic clock in milliseconds. Never raises: a clock that raised inside one of the
---- bare threads below would end it, so a bad reading freezes the clock instead of ending it.
+--- The scheduler clock in milliseconds; `monotonic` answers SECONDS. A non-finite reading is
+--- dropped rather than propagated: a NaN would expire nothing, an infinity everything.
 ---@return integer
+local lastMs = 0
 local function nowMs()
-  -- `monotonic` is in SECONDS, and the scheduler's clock is in milliseconds. A non-finite
-  -- reading is dropped: NaN fails every comparison, and an infinity fires every deadline.
-  local ok, seconds = pcall(Open77.time.monotonic)
-  if ok and type(seconds) == "number" and seconds > -math.huge and seconds < math.huge then
+  local read, seconds = pcall(Open77.time.monotonic)
+  if read and type(seconds) == "number" and seconds == seconds and
+    seconds >= 0 and seconds < math.huge then
     lastMs = math.floor(seconds * 1000)
   end
   return lastMs
