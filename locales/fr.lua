@@ -1,4 +1,4 @@
-OpxAppearance.locale.register("fr", {
+OpxAppearance.Locale.register("fr", {
   ["appearance.saved"]             = "Apparence enregistrée.",
   ["appearance.saveFailed"]        = "Apparence non enregistrée : {reason}",
   ["appearance.saveTimedOut"]      = "Apparence non enregistrée : aucune réponse.",
@@ -36,6 +36,7 @@ OpxAppearance.locale.register("fr", {
   ["appearance.tooLarge"]          =
     "Cette apparence est trop volumineuse pour être enregistrée.",
   ["error.badRequest"]             = "Cette requête n'a pas été comprise.",
+  ["error.unavailable"]            = "Indisponible pour le moment.",
   ["error.tooFast"]                = "Ralentissez et réessayez dans un instant.",
   ["error.notLoggedIn"]            = "Vous n'êtes pas encore en jeu.",
 })

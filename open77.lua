@@ -1,11 +1,10 @@
 resource "opx77_appearance"
-version "0.1.0"
+version "0.2.0"
 open77_version ">=0.0.1"
 auto_start true
 
--- A reload is a script reload, not a reconnect: the client re-reads the live character from
--- opx77_core, and the stored face travels in PlayerData. Nothing here survives a reload.
-reload_policy "local"
+reload_policy "local" -- a reload is a script reload, not a reconnect: the face is re-read
+                      -- from PlayerData, and nothing here survives one
 
 shared_script "config.lua"
 shared_script "shared/locale.lua"

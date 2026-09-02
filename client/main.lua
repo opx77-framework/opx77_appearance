@@ -1,4 +1,4 @@
---- opx77_appearance -- the client half: the link to opx77_core, the bootstrap, and the restore.
+--- The client half: the link to opx77_core, the bootstrap, and the restore.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -17,11 +17,17 @@ local NOTIFY = "opx77_notify"
 --- nothing raises an event for.
 local WATCH_MS = 200
 
+--- The scheduler clock in milliseconds; `monotonic` answers SECONDS. A non-finite reading is
+--- dropped rather than propagated: a NaN would expire nothing, an infinity everything.
 ---@return integer
+local lastMs = 0
 local function nowMs()
-  -- `monotonic` is in SECONDS; mixing it with the millisecond scheduler clock gives a timer
-  -- that fires a thousand times too early.
-  return math.floor(Open77.time.monotonic() * 1000)
+  local read, seconds = pcall(Open77.time.monotonic)
+  if read and type(seconds) == "number" and seconds == seconds and
+    seconds >= 0 and seconds < math.huge then
+    lastMs = math.floor(seconds * 1000)
+  end
+  return lastMs
 end
 Runtime.nowMs = nowMs
 
@@ -84,8 +90,8 @@ end
 --- true for the creator's preview and for the puppet behind the "continue" screen.
 ---@return boolean
 local function inGameplay()
-  local character = Open77.character.state()
-  return type(character) == "table" and character.attached == true and
+  local ok, character = pcall(Open77.character.state)
+  return ok and type(character) == "table" and character.attached == true and
     character.alive == true and (tonumber(character.health) or 0) > 0
 end
 
@@ -425,7 +431,10 @@ AddEventHandler("onClientResourceStart", function(name)
   CreateThread(function()
     while true do
       Wait(WATCH_MS)
-      Runtime.announce()
+      -- a raise from a host call would end this loop for the session, and this loop is what
+      -- clears the platform's readiness hold
+      local ok, failure = pcall(Runtime.announce)
+      if not ok then Open77.log.error("announce worker: " .. tostring(failure)) end
     end
   end)
 end)

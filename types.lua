@@ -9,8 +9,8 @@
 
 ---@alias AppearanceMode "ripperdoc"|"hairdresser"
 
---- Why something was refused. Codes from this resource are hints; the core sends five locale
---- keys this catalogue carries and two storage codes it does not.
+--- Why something was refused. Codes from this resource are hints; the core sends six locale
+--- keys, all of which this resource's catalogue carries.
 ---@alias AppearanceError
 ---| "export_call_required" no invoking resource, so the call came from inside      (client)
 ---| "no_character"         opx77_core has no character loaded here                 (client)
@@ -27,11 +27,10 @@
 ---| "character_bootstrap_failed" the host would not load a world for this body     (client)
 ---| "appearance.invalid"   opx77_core could not read the snapshot                    (core)
 ---| "appearance.tooLarge"  the JSON document is over the core's limit                (core)
----| "error.tooFast"        two saves inside the core's 2000 ms cooldown              (core)
 ---| "error.badRequest"     the payload was not a table                               (core)
 ---| "error.notLoggedIn"    no character loaded on the core for this connection       (core)
----| "no-database"          the core has no MySQL bridge                                (core)
----| "query-failed"         the write raised in the core's storage layer                (core)
+---| "error.tooFast"        two saves inside the core's 2000 ms cooldown              (core)
+---| "error.unavailable"    the core's storage layer refused the write                (core)
 
 --- One logical customization option: a position in the catalogue, not a mesh.
 ---@class AppearanceOption
