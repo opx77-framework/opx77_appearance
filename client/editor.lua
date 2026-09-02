@@ -104,13 +104,23 @@ local function enterPristine(reason)
   Runtime.announce()
 end
 
---- Open the creator for the live character. Called by the runtime when `PlayerData` carries
---- no stored face.
----@return boolean
-function Editor.requireCreation()
-  if State.creating or State.creationRefused or State.citizenId == nil then return false end
-  Runtime.publish({ ok = true, event = "createRequired", citizenId = State.citizenId })
-  return openCreator()
+--- Open the vanilla character creator for the live character. The caller is a character
+--- creator resource answering `needsCreation`; this resource never decides to open one.
+---
+--- Everything after the player confirms belongs here: the capture, the body-family check
+--- against the character, the save through opx77_core, spending the bootstrap and letting the
+--- world load. The caller hears the outcome on the resource's event channel.
+---@return boolean, string|nil
+function Editor.creator()
+  if State.citizenId == nil then return false, "no_character" end
+  if State.creating then return false, "appearance_busy" end
+  if State.editing or Open77.appearance.isOpen() then return false, "appearance_busy" end
+  if State.creationRefused then return false, "creation_refused" end
+  if type(State.canonical) == "table" then return false, "already_has_a_face" end
+  if Runtime.bootstrapPhase() == "ready" then return false, "bootstrap_already_spent" end
+  State.creationWarned = true
+  if not openCreator() then return false, "character_creator_unavailable" end
+  return true
 end
 
 --- The core stored the face the creator built: spend the bootstrap and let the world load.
@@ -130,6 +140,46 @@ end
 -- ---------------------------------------------------------------------------
 -- Editing a face
 -- ---------------------------------------------------------------------------
+
+--- Store a face on the live character, through opx77_core. Defaults to a capture of the
+--- puppet, so a caller that has just applied one can call this with nothing.
+---
+--- Answers that the save was asked for. The core validates and writes it; the outcome reaches
+--- the event channel as `saved`. A face identical to the stored one is completed here without
+--- a round trip, because the core answers an unchanged save with silence.
+---@param snapshot AppearanceSnapshot|nil
+---@return boolean, string|nil
+function Editor.save(snapshot)
+  if State.citizenId == nil then return false, "no_character" end
+  if State.commit ~= nil then return false, "appearance_busy" end
+  if State.editing or State.creating then return false, "appearance_busy" end
+
+  local payload, reason
+  if snapshot == nil then
+    local capture, captureError = Open77.appearance.capture()
+    payload, reason = Snapshot.forNetwork(capture)
+    reason = reason or captureError
+  else
+    payload, reason = Snapshot.forNetwork(snapshot)
+  end
+  if payload == nil then return false, tostring(reason or "capture_failed") end
+  if not Snapshot.buildAccepted(payload.gameBuild) then
+    return false, "stored_build_mismatch"
+  end
+
+  if Snapshot.same(payload, State.canonical) then
+    Runtime.publish({ ok = true, event = "saved", citizenId = State.citizenId,
+                      unchanged = true })
+    return true
+  end
+
+  send(payload, "edit", function(failure)
+    Runtime.publish({ ok = false, event = "saved", error = failure,
+                      citizenId = State.citizenId })
+    Runtime.notify("error", "appearance.saveFailed", { reason = failure })
+  end)
+  return true
+end
 
 --- Open the appearance editor on the live character. Answers only that the modal was asked
 --- for; the save happens when the player confirms it.
@@ -324,6 +374,7 @@ end
 
 --- One pass of the worker: the modals, and the capture deadline.
 local function watch()
+  Runtime.warnUnanswered()
   resumeFamilyTransition()
 
   if State.creating then

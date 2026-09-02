@@ -25,4 +25,8 @@ OPX_APPEARANCE_CONFIG = {
 
   -- Character creator reopens after the player came back on the wrong body family.
   FAMILY_RETRIES = 2,
+
+  -- How long a character with no stored face waits for something to answer `needsCreation`
+  -- before this resource says nobody did, in ms. It never opens a creator itself.
+  CREATION_WAIT_MS = 15000,
 }

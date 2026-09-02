@@ -48,25 +48,83 @@ sequence and no appearance resource has ever gated it.
 ## Commands
 
 None. A chat command cannot be registered from a client resource on this platform, and this
-one has no server half to register one from. The editor is opened through the `open` and
+one has no server half to register one from. The editor is opened through the `editor` and
 `barber` exports — a menu, a ripperdoc prop or any other client resource calls them.
 
 ## Exports
 
-Client-side only; the server runtime installs none.
+An appearance service, not a flow. This resource reads, applies, stores and edits the live
+character's face; it never decides that a player should be sent to a creator. `opx77_charselector`
+and `opx77_charcreator` own that decision and call these.
 
 | Export | Does |
 |---|---|
-| `open(mode)` | ask for the editor — `"ripperdoc"` or `"hairdresser"` |
+| `getSkin` | the stored face for the live character, as `opx77_core` holds it |
+| `captureSkin` | what the puppet is wearing right now, ready to hand back |
+| `family` | the character's body family, `"female"` or `"male"` |
+| `setSkin(snapshot)` | put a face on the puppet; stores nothing |
+| `saveSkin(snapshot?)` | store one through `opx77_core`; defaults to a capture |
+| `editor(mode?)` | the native mirror, `"ripperdoc"` or `"hairdresser"` |
 | `barber` | the same call with the mode fixed |
-| `isOpen` | whether a native modal is on screen, and which one |
-| `current` | the stored face, as `PlayerData.appearance` carries it |
+| `creator` | the vanilla character creator, for a character with no face |
+| `isOpen` | whether a native modal is on screen, and which |
+| `isSettled` | whether this world entry's appearance work has finished |
 | `state` | what this client knows, for a face that did not come back |
 
-`open` answers that the modal was **asked for**. What happens to the face afterwards arrives on
-`OPX_APPEARANCE_CONFIG.EVENT`, because an export handler is not a coroutine and nothing could
-wait for it. There is deliberately no export that writes a face: a caller that could hand this
-resource a snapshot could hand it somebody else's.
+Every one answers a table carrying `ok`, never raises, and takes its caller from
+`GetInvokingResource()`. A write answers that it was **asked for**: the engine schedules an apply
+through the vanilla mirror and `opx77_core` validates a save, so the outcome arrives on
+`OPX_APPEARANCE_CONFIG.EVENT` rather than in the return value.
+
+```lua
+CreateThread(function()
+  local promise = Open77.exports.call("opx77_appearance", "captureSkin")
+  local result = promise and promise:await()
+  if result and result.ok then
+    Open77.exports.call("opx77_appearance", "saveSkin", result.snapshot)
+  end
+end)
+
+AddEventHandler("opx77:appearance", function(payload)
+  if payload.event == "saved" and payload.ok then
+    -- stored
+  end
+end)
+```
+
+## Who opens the creator
+
+Not this resource. When the live character has no stored face it publishes `needsCreation` on
+its event channel and waits:
+
+```lua
+AddEventHandler("opx77:appearance", function(payload)
+  if payload.event ~= "needsCreation" then return end
+  -- draw whatever you want, then:
+  Open77.exports.call("opx77_appearance", "creator")
+end)
+```
+
+Everything after the player confirms belongs here again — the capture, the check that the body
+they built is the body their character is, the save through `opx77_core`, spending the character
+bootstrap and letting the world load. The outcome arrives as `created`.
+
+If nothing answers, the player sits in the vanilla menu with no world behind it and nothing on
+screen. That is undiagnosable from the outside, so after `CREATION_WAIT_MS` this resource says so
+in the log, once, naming the export that was never called.
+
+## What it still owns
+
+Three things a caller cannot do for itself, and the reason this is a resource rather than a
+library:
+
+- **The character bootstrap.** `resolveCharacterBootstrap` is one-shot and settles which pristine
+  body the world loads with. It is spent here, on `charInfo.gender`.
+- **The join-time restore.** A stored face is applied only once the puppet is attached, alive and
+  past the "press any key to continue" screen — applying it earlier arms a native watchdog that
+  ends in a user-facing error on a correct face.
+- **`open77:session:gameplayReady`.** The only thing that clears the platform's `__platform`
+  hold, and it goes out exactly when `isSettled` turns true. Without it nobody spawns.
 
 ## How a face is stored
 
@@ -83,7 +141,8 @@ snapshot, writes it, and publishes it back. There is a **2000 ms cooldown** on t
 | Direction | Channel |
 |---|---|
 | write | `opx77:server:saveAppearance`, payload `{ snapshot = … }` |
-| refusal | `opx77:client:notify` → `OPX.Events.Local.REFUSED`, carrying a code and the request it answers |
+| refusal | `opx77:client:notify` → `OPX.Events.Local.REFUSED`, carrying a code and the request
+it answers |
 | read | `PlayerData.appearance`, so it arrives with `opx77:client:onPlayerLoaded` |
 | read | `opx77_core`'s `GetAppearance` client export |
 | change | `opx77:client:appearanceSaved`, whose payload is the snapshot |
@@ -158,9 +217,16 @@ two deadlines above and the two retry counts.
 
 ## Locales
 
-`LOCALE` in `config.lua` picks the catalogue player-facing text is read from — `"en"` or `"fr"` as shipped. Each resource carries its own catalogue, so this is set here as well as in `opx77_core`: the core's `Locale` export is client-only and asynchronous, and a resource that renders text at load cannot wait on it.
+`LOCALE` in `config.lua` picks the catalogue player-facing text is read from — `"en"` or `"fr"`
+as shipped. Each resource carries its own catalogue, so this is set here as well as in
+`opx77_core`: the core's `Locale` export is client-only and asynchronous, and a resource that
+renders text at load cannot wait on it.
 
-To add a language, copy `locales/en.lua` to `locales/<code>.lua`, change the code in the `register` call, translate the values, add a `shared_script "locales/<code>.lua"` line to `open77.lua` beside the others, and set `LOCALE` to it. A key missing from a catalogue falls back to English, then to the key itself. `Open77.log` lines and console output stay English whatever the setting.
+To add a language, copy `locales/en.lua` to `locales/<code>.lua`, change the code in the
+`register` call, translate the values, add a `shared_script "locales/<code>.lua"` line to
+`open77.lua` beside the others, and set `LOCALE` to it. A key missing from a catalogue falls
+back to English, then to the key itself. `Open77.log` lines and console output stay English
+whatever the setting.
 
 ## Community & Support
 
