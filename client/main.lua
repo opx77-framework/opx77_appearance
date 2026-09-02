@@ -101,6 +101,7 @@ local function bootstrapPhase()
   local ok, bootstrap = pcall(Open77.session.characterBootstrap)
   return ok and type(bootstrap) == "table" and tostring(bootstrap.phase) or "unreadable"
 end
+Runtime.bootstrapPhase = bootstrapPhase
 
 --- Decide whether this world is the gameplay one or the vanilla menu, from the bootstrap
 --- phase. Called from the world-entry events only, because polling would read `ready` too early.
@@ -271,8 +272,9 @@ function Runtime.resolveBootstrap(family)
   return true
 end
 
---- Decide what happens to the live character's face: restore the stored one, send the player
---- to the creator when there is none, or settle honestly when neither is possible.
+--- Decide what happens to the live character's face: restore the stored one, or say that
+--- there is none to restore. This resource never opens the creator on its own -- a character
+--- with no face publishes `needsCreation` and waits for somebody to call the `creator` export.
 ---@param origin string
 function Runtime.resolveCharacter(origin)
   if State.citizenId == nil then return end
@@ -300,17 +302,31 @@ function Runtime.resolveCharacter(origin)
     return
   end
 
-  -- No stored face. The vanilla creator run is part of the character bootstrap, so it is only
-  -- opened while that is still unspent: a reload in the gameplay world must not raise one.
+  -- No stored face. The vanilla creator runs inside the character bootstrap, so it is only
+  -- worth asking for while that is unspent: a reload in the gameplay world cannot raise one.
   if not State.creating and not State.creationRefused and bootstrapPhase() ~= "ready" then
     State.settled = true
-    OpxAppearance.editor.requireCreation()
+    State.creationAskedAtMs = Runtime.nowMs()
+    Runtime.publish({ ok = true, event = "needsCreation", citizenId = State.citizenId,
+                      family = State.family })
     return
   end
 
   Runtime.resolveBootstrap(State.family)
   State.settled = true
   Runtime.announce()
+end
+
+--- Says so, once, when nobody answered `needsCreation`. The player is sitting in the vanilla
+--- menu with no world behind it and nothing on screen, which is otherwise undiagnosable.
+function Runtime.warnUnanswered()
+  if State.creationAskedAtMs == 0 or State.creating or State.creationWarned then return end
+  if Runtime.nowMs() - State.creationAskedAtMs < Config.CREATION_WAIT_MS then return end
+  State.creationWarned = true
+  Open77.log.warn(("%s has no stored face and nothing called the `creator` export")
+    :format(tostring(State.citizenId)))
+  Open77.log.warn("  the player is in the vanilla menu with no world behind it; a character")
+  Open77.log.warn("  creator resource is what opens one. See README, \"Who opens the creator\".")
 end
 
 -- ---------------------------------------------------------------------------

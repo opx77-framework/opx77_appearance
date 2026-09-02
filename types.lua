@@ -17,6 +17,10 @@
 ---| "appearance_busy"      an editor or a creator is already on screen             (client)
 ---| "character_creation_in_progress" the character is still being built            (client)
 ---| "invalid_mode"         not "ripperdoc" or "hairdresser"                        (client)
+---| "capture_failed"       the engine would not answer what the puppet wears        (client)
+---| "already_has_a_face"   `creator` on a character that has a stored one           (client)
+---| "bootstrap_already_spent" `creator` after the world has already loaded          (client)
+---| "creation_refused"     this character's creator run ended for good              (client)
 ---| "not_sent"             the net event was not accepted                          (client)
 ---| "save_timeout"         opx77_core never answered a captured face               (client)
 ---| "invalid_snapshot"     the native capture is not a snapshot                    (client)
@@ -52,6 +56,27 @@
 ---@field ok boolean
 ---@field error AppearanceError|nil
 
+--- What `captureSkin` answers: the puppet as it is right now, canonical and ready to hand
+--- straight back to `setSkin` or `saveSkin`.
+---@class AppearanceCapture : AppearanceResponse
+---@field snapshot AppearanceSnapshot|nil
+---@field citizenId CitizenId|nil
+
+--- What `family` answers. The value is opx77_core's `charInfo.gender` and nothing here can
+--- change it.
+---@class AppearanceFamily : AppearanceResponse
+---@field family BodyFamily|nil
+---@field citizenId CitizenId|nil
+
+--- What `isSettled` answers. `waiting` names what the session is still short of, and
+--- `"creation"` is the one to branch on: the character has no face and nothing has called
+--- `creator` yet.
+---@class AppearanceSettled : AppearanceResponse
+---@field settled boolean    the appearance work for this world entry has finished
+---@field announced boolean  `open77:session:gameplayReady` has gone out
+---@field waiting "server"|"restore"|"creation"|"creator"|nil
+---@field citizenId CitizenId|nil
+
 ---@class AppearanceOpenResult : AppearanceResponse
 ---@field queued boolean|nil     true means asked, never "the modal is on screen"
 ---@field citizenId CitizenId|nil
@@ -85,7 +110,8 @@
 ---| "gameplayReady"    the readiness announcement went out; the player may be placed
 ---| "restored"         a stored face was put on the puppet, or could not be
 ---| "settled"          this world entry's face was decided, and there is none to wear
----| "createRequired"   this character has no face and the creator is opening
+---| "needsCreation"    this character has no face; call `creator` to open one
+---| "applied"          `setSkin` reached the puppet, or could not
 ---| "created"          a character was built and stored, or was not
 ---| "saved"            an edit was committed, or was refused
 ---| "characterChanged" the live character switched underneath this resource
