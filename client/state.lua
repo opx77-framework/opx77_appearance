@@ -1,4 +1,4 @@
---- opx77_appearance -- what this client knows, and which generation it belongs to.
+--- Client-side state: what this client knows, and which generation it belongs to.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -63,10 +63,6 @@ State.commit = nil
 
 --- When the last capture went out, so the core's cooldown is waited out rather than tripped.
 State.lastSaveAtMs = 0
-
---- When this client last traced a creator that is still on screen. It grants no time and is
---- never checked against a deadline.
-State.creationBeatAtMs = 0
 
 --- Whether this character has already been told its stored face is from another build. Said
 --- once per character, not once per world entry.
@@ -161,7 +157,6 @@ function State.unload()
   State.editing = false
   State.creating = false
   State.commit = nil
-  State.creationBeatAtMs = 0
   State.creationRefused = false
   State.familyAttempts = 0
   State.buildWarned = false

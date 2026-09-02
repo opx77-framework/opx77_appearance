@@ -83,16 +83,19 @@ snapshot, writes it, and publishes it back. There is a **2000 ms cooldown** on t
 | Direction | Channel |
 |---|---|
 | write | `opx77:server:saveAppearance`, payload `{ snapshot = … }` |
-| refusal | `opx77:client:notify` → `OPX.Events.Local.REFUSED`, carrying a code |
+| refusal | `opx77:client:notify` → `OPX.Events.Local.REFUSED`, carrying a code and the request it answers |
 | read | `PlayerData.appearance`, so it arrives with `opx77:client:onPlayerLoaded` |
 | read | `opx77_core`'s `GetAppearance` client export |
 | change | `opx77:client:appearanceSaved`, whose payload is the snapshot |
 
-Five of the refusals are locale keys — `appearance.invalid`, `appearance.tooLarge`,
-`error.tooFast`, `error.badRequest` and `error.notLoggedIn` — and this resource's own catalogue
-carries the same five, so those are shown in the player's language. The core's storage layer
-can also refuse with `no-database` or `query-failed`, which are not locale keys; those are shown
-through `appearance.saveFailed` with the code as the reason.
+A refusal carries the request it answers as well as a code, and only one naming
+`saveAppearance` is this resource's: an `error.tooFast` raised by a character selection or a
+vehicle spawn is left alone rather than taken for the answer to a capture still in flight.
+
+The six codes that request can be refused with are `appearance.invalid`,
+`appearance.tooLarge`, `error.badRequest`, `error.notLoggedIn`, `error.tooFast` and
+`error.unavailable`, which is what the core's storage failures are mapped to. This resource's
+catalogue carries all six, so every one of them is shown in the player's language.
 
 A confirm that did not change anything is completed on the client: the core writes nothing and
 publishes nothing for a face identical to the stored one, so waiting for an answer would time
@@ -127,11 +130,10 @@ snapshot fit; it only stops this resource from saying so.
 |---|---|---|
 | `COMMIT_MS` | how long the core has to answer a captured face | 20,000 ms |
 | `SAVE_COOLDOWN_MS` | the core's own cooldown, waited out before a capture goes out | 2,000 ms |
-| `CREATION_BEAT_MS` | how often a creator still on screen is traced to the log | 5,000 ms |
 
-There is no deadline on building a character. The creator beat is a trace and grants nothing:
-a player deliberating for an hour leaves the readiness gate closed for an hour, and a player
-who alt-F4s out of the creator was never holding anything the server keeps.
+There is no deadline on building a character: a player deliberating for an hour leaves the
+readiness gate closed for an hour, and a player who alt-F4s out of the creator was never
+holding anything the server keeps.
 
 ## What happens when a character never gets a face
 
@@ -152,11 +154,13 @@ any other capture.
 ## Configuration
 
 `config.lua`: the language, the event name, whether to raise toasts, the catalogue builds, the
-deadlines above and the two retry counts.
+two deadlines above and the two retry counts.
 
-`LOCALE` selects the catalogue in `locales/`. It is separate from the core's own setting, and
-both are read: this resource's server half does not exist, so it cannot ask the core anything,
-and the core's `Locale` export cannot answer a file that renders text at load.
+## Locales
+
+`LOCALE` in `config.lua` picks the catalogue player-facing text is read from — `"en"` or `"fr"` as shipped. Each resource carries its own catalogue, so this is set here as well as in `opx77_core`: the core's `Locale` export is client-only and asynchronous, and a resource that renders text at load cannot wait on it.
+
+To add a language, copy `locales/en.lua` to `locales/<code>.lua`, change the code in the `register` call, translate the values, add a `shared_script "locales/<code>.lua"` line to `open77.lua` beside the others, and set `LOCALE` to it. A key missing from a catalogue falls back to English, then to the key itself. `Open77.log` lines and console output stay English whatever the setting.
 
 ## Community & Support
 

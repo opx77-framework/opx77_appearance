@@ -1,4 +1,4 @@
---- opx77_appearance -- settings shipped to every client. This resource has no server half.
+-- Configuration for opx77_appearance, shipped to every client. It has no server half.
 
 OPX_APPEARANCE_CONFIG = {
   -- Language for player-facing text. Server logs stay in English.
@@ -12,10 +12,6 @@ OPX_APPEARANCE_CONFIG = {
 
   -- Which catalogue builds a stored snapshot may be read back into.
   GAME_BUILDS = { ["2.31"] = true },
-
-  -- How often a creator that is still on screen is traced, in ms. It is a trace and never a
-  -- deadline: building a character is not timed.
-  CREATION_BEAT_MS = 5000,
 
   -- How long opx77_core has to answer a captured face before it is given up on, in ms.
   COMMIT_MS = 20000,

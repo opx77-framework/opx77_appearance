@@ -1,5 +1,5 @@
---- Player-facing text. Open77.log lines stay in English whatever the configured locale is.
---- Publishes the global `locale(key, params)` as well as `OpxAppearance.locale`.
+--- Player-facing text. Log lines and console output stay in English whatever the
+--- configured locale is. Publishes the global `locale(key, params)` and `OpxAppearance.Locale`.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -9,7 +9,7 @@ local FALLBACK = "en"
 
 local Locale = {}
 
---- Substitutes `{name}` placeholders; an unknown name is left in place so a typo shows.
+--- Fills `{name}` from `params`; a placeholder with no value is left as it was written.
 ---@param text string
 ---@param params? table<string, string|number>
 ---@return string
@@ -67,9 +67,9 @@ function Locale.t(key, params)
   return interpolate(text, params)
 end
 
-OpxAppearance.locale = Locale
+OpxAppearance.Locale = Locale
 
---- The shorthand every file that renders text uses.
+--- The shorthand every file below the catalogues uses.
 ---@type fun(key: string, params?: table<string, string|number>): string
 locale = Locale.t
 

@@ -1,4 +1,4 @@
---- opx77_appearance -- the client half: the link to opx77_core, the bootstrap, and the restore.
+--- The client half: the link to opx77_core, the bootstrap, and the restore.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -17,11 +17,21 @@ local NOTIFY = "opx77_notify"
 --- nothing raises an event for.
 local WATCH_MS = 200
 
+--- The last millisecond reading the host gave, so a clock that fails freezes rather than
+--- resets: a deadline that stops advancing holds, and one that resets to zero fires at once.
+local lastMs = 0
+
+--- The monotonic clock in milliseconds. Never raises: a clock that raised inside one of the
+--- bare threads below would end it, so a bad reading freezes the clock instead of ending it.
 ---@return integer
 local function nowMs()
-  -- `monotonic` is in SECONDS; mixing it with the millisecond scheduler clock gives a timer
-  -- that fires a thousand times too early.
-  return math.floor(Open77.time.monotonic() * 1000)
+  -- `monotonic` is in SECONDS, and the scheduler's clock is in milliseconds. A non-finite
+  -- reading is dropped: NaN fails every comparison, and an infinity fires every deadline.
+  local ok, seconds = pcall(Open77.time.monotonic)
+  if ok and type(seconds) == "number" and seconds > -math.huge and seconds < math.huge then
+    lastMs = math.floor(seconds * 1000)
+  end
+  return lastMs
 end
 Runtime.nowMs = nowMs
 
@@ -84,8 +94,8 @@ end
 --- true for the creator's preview and for the puppet behind the "continue" screen.
 ---@return boolean
 local function inGameplay()
-  local character = Open77.character.state()
-  return type(character) == "table" and character.attached == true and
+  local ok, character = pcall(Open77.character.state)
+  return ok and type(character) == "table" and character.attached == true and
     character.alive == true and (tonumber(character.health) or 0) > 0
 end
 
@@ -425,7 +435,10 @@ AddEventHandler("onClientResourceStart", function(name)
   CreateThread(function()
     while true do
       Wait(WATCH_MS)
-      Runtime.announce()
+      -- a raise from a host call would end this loop for the session, and this loop is what
+      -- clears the platform's readiness hold
+      local ok, failure = pcall(Runtime.announce)
+      if not ok then Open77.log.error("announce worker: " .. tostring(failure)) end
     end
   end)
 end)

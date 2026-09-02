@@ -1,9 +1,9 @@
---- opx77_appearance -- the two modal transactions: building a character, and editing one.
+--- The two modal transactions: building a character, and editing one.
 
 OpxAppearance = OpxAppearance or {}
 
 local Config = OPX_APPEARANCE_CONFIG
-local Locale = OpxAppearance.locale
+local Locale = OpxAppearance.Locale
 local Snapshot = OpxAppearance.snapshot
 local State = OpxAppearance.state
 local Runtime = OpxAppearance.runtime
@@ -14,16 +14,18 @@ OpxAppearance.editor = Editor
 --- How often the worker looks at the modals, in ms.
 local WATCH_MS = 200
 
---- The refusals opx77_core answers a `saveAppearance` with. The five locale keys are in this
---- resource's catalogue; the two storage codes are not, and go through the fallback.
+--- `OPX.Operations.SAVE_APPEARANCE`: the request a refusal has to name to be this resource's.
+local SAVE_OPERATION = "saveAppearance"
+
+--- Every code opx77_core can answer a `saveAppearance` with. All six are locale keys this
+--- catalogue carries: the core maps a storage failure to `error.unavailable` before sending it.
 local REFUSALS = {
   ["appearance.invalid"] = true,
   ["appearance.tooLarge"] = true,
-  ["error.tooFast"] = true,
   ["error.badRequest"] = true,
   ["error.notLoggedIn"] = true,
-  ["no-database"] = true,
-  ["query-failed"] = true,
+  ["error.tooFast"] = true,
+  ["error.unavailable"] = true,
 }
 
 --- Put the stored face back on the puppet after an edit that did not land. The mutation
@@ -78,9 +80,8 @@ end
 --- Open the vanilla creator for a character that has no stored face.
 ---@return boolean
 local function openCreator()
-  State.creating = true
   -- No deadline while the modal is open; a player deliberating for an hour is not a fault.
-  State.creationBeatAtMs = Runtime.nowMs()
+  State.creating = true
   local opened, reason = Open77.session.requestCharacterCreator()
   if opened then return true end
   State.creating = false
@@ -233,17 +234,20 @@ AddEventHandler("opx77:client:appearanceSaved", function(snapshot)
   Runtime.beginRestore(snapshot, nil, "core")
 end)
 
---- A refusal from the core, carrying a locale key. Only one that arrives while a capture is
---- in flight is ours.
-AddEventHandler("opx77:client:refused", function(code)
+--- A refusal from the core, carrying a locale key and the request it answers. The operation
+--- decides whether it is ours: the core refuses a character selection with the same codes.
+AddEventHandler("opx77:client:refused", function(code, _, operation)
   local pending = State.commit
-  if pending == nil or not REFUSALS[tostring(code)] then return end
+  if pending == nil or operation ~= SAVE_OPERATION then return end
+  code = tostring(code)
+  if not REFUSALS[code] then
+    Open77.log.warn(("save refused with an unlisted code: %s"):format(code))
+  end
   State.commit = nil
-  if pending.kind == "create" then return enterPristine(tostring(code)) end
-  Runtime.publish({ ok = false, event = "saved", error = tostring(code),
-                    citizenId = State.citizenId })
+  if pending.kind == "create" then return enterPristine(code) end
+  Runtime.publish({ ok = false, event = "saved", error = code, citizenId = State.citizenId })
   rollback(code)
-  refused(tostring(code))
+  refused(code)
 end)
 
 -- ---------------------------------------------------------------------------
@@ -318,37 +322,38 @@ local function takeCreatorResult(result)
   end)
 end
 
+--- One pass of the worker: the modals, and the capture deadline.
+local function watch()
+  resumeFamilyTransition()
+
+  if State.creating then
+    local result = Open77.session.takeCharacterCreatorResult()
+    if type(result) == "string" and result ~= "" then takeCreatorResult(result) end
+  end
+
+  -- A capture that went out and was never answered. The modal is already closed, so nothing
+  -- is taken away from anybody.
+  local pending = State.commit
+  if pending ~= nil and pending.deadlineMs > 0 and Runtime.nowMs() >= pending.deadlineMs then
+    State.commit = nil
+    if pending.kind == "create" then
+      Runtime.finishMutation()
+      enterPristine("save_timeout")
+    else
+      rollback("save_timeout")
+      Runtime.notify("error", "appearance.saveTimedOut")
+    end
+  end
+end
+
 --- Everything that has to be looked at rather than waited for. One thread, because a client
 --- resource is allowed 1024 tasks and a thread per transaction is how that budget goes.
 CreateThread(function()
   while true do
     Wait(WATCH_MS)
-
-    resumeFamilyTransition()
-
-    if State.creating then
-      local at = Runtime.nowMs()
-      if at - State.creationBeatAtMs >= Config.CREATION_BEAT_MS then
-        State.creationBeatAtMs = at
-        Open77.log.debug("character creator still open")
-      end
-
-      local result = Open77.session.takeCharacterCreatorResult()
-      if type(result) == "string" and result ~= "" then takeCreatorResult(result) end
-    end
-
-    -- A capture that went out and was never answered. The modal is already closed, so nothing
-    -- is taken away from anybody.
-    local pending = State.commit
-    if pending ~= nil and pending.deadlineMs > 0 and Runtime.nowMs() >= pending.deadlineMs then
-      State.commit = nil
-      if pending.kind == "create" then
-        Runtime.finishMutation()
-        enterPristine("save_timeout")
-      else
-        rollback("save_timeout")
-        Runtime.notify("error", "appearance.saveTimedOut")
-      end
-    end
+    -- a raise from a host call would end this loop for the session: no creator result is ever
+    -- read again, and no capture is ever timed out
+    local ok, failure = pcall(watch)
+    if not ok then Open77.log.error("appearance worker: " .. tostring(failure)) end
   end
 end)

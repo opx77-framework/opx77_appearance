@@ -1,4 +1,4 @@
-OpxAppearance.locale.register("en", {
+OpxAppearance.Locale.register("en", {
   ["appearance.saved"]             = "Appearance saved.",
   ["appearance.saveFailed"]        = "Appearance was not saved: {reason}",
   ["appearance.saveTimedOut"]      = "Appearance was not saved: nothing answered.",
@@ -33,6 +33,7 @@ OpxAppearance.locale.register("en", {
   ["appearance.invalid"]           = "That appearance could not be read.",
   ["appearance.tooLarge"]          = "That appearance is too large to store.",
   ["error.badRequest"]             = "That request was not understood.",
+  ["error.unavailable"]            = "That is unavailable right now.",
   ["error.tooFast"]                = "Slow down and try again in a moment.",
   ["error.notLoggedIn"]            = "You are not in the world yet.",
 })

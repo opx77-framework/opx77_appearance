@@ -1,4 +1,5 @@
---- opx77_appearance -- the public surface, client-side only: the server runtime installs none.
+--- The public export surface. Every call answers a table carrying `ok` and never raises;
+--- `error` is one of the codes in types.lua. Client-side only: the server runtime installs none.
 
 local State = OpxAppearance.state
 local Editor = OpxAppearance.editor
