@@ -272,9 +272,8 @@ function Runtime.resolveBootstrap(family)
   return true
 end
 
---- Decide what happens to the live character's face: restore the stored one, or say that
---- there is none to restore. This resource never opens the creator on its own -- a character
---- with no face publishes `needsCreation` and waits for somebody to call the `creator` export.
+--- Decide what happens to the live character's face: restore the stored one, or publish
+--- `needsCreation` and wait. This resource never opens a creator on its own.
 ---@param origin string
 function Runtime.resolveCharacter(origin)
   if State.citizenId == nil then return end
@@ -323,7 +322,7 @@ function Runtime.warnUnanswered()
   if State.creationAskedAtMs == 0 or State.creating or State.creationWarned then return end
   if Runtime.nowMs() - State.creationAskedAtMs < Config.CREATION_WAIT_MS then return end
   State.creationWarned = true
-  Open77.log.warn(("%s has no stored face and nothing called the `creator` export")
+  Open77.log.warn(("%s has no stored face and nothing called the `openCreator` export")
     :format(tostring(State.citizenId)))
   Open77.log.warn("  the player is in the vanilla menu with no world behind it; a character")
   Open77.log.warn("  creator resource is what opens one. See README, \"Who opens the creator\".")
@@ -388,6 +387,8 @@ local function adoptCharacter(playerData, origin)
   State.canonical = type(playerData.appearance) == "table" and playerData.appearance or nil
   State.settled = false
   State.creationRefused = false
+  State.creationAskedAtMs = 0
+  State.creationWarned = false
   State.familyAttempts = 0
   State.buildWarned = false
   State.undress()
@@ -416,8 +417,9 @@ end)
 --- every emission above, and there is no replay.
 local function catchUp()
   CreateThread(function()
-    local result = Runtime.call(CORE, "GetPlayerData")
-    if result ~= nil then adoptCharacter(result.data, "catchUp") end
+    local result, failure = Runtime.call(CORE, "GetPlayerData")
+    if result == nil then return Open77.log.debug("catch-up: " .. tostring(failure)) end
+    adoptCharacter(result.data, "catchUp")
   end)
 end
 
