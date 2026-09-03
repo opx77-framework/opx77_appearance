@@ -23,6 +23,10 @@
 ---| "creation_refused"     this character's creator run ended for good             (client)
 ---| "character_creator_unavailable" the engine would not open the creator          (client)
 ---| "not_sent"             the net event was not accepted                          (client)
+---| "menu_not_running"     the panel is opx77_menu's, and it is not running        (client)
+---| "panel_busy"           another resource owns the open panel                    (client)
+---| "no_panel_open"        `closePanel` with nothing on screen                     (client)
+---| "not_owner"            `closePanel` on another resource's panel                (client)
 ---| "save_timeout"         opx77_core never answered a captured face               (client)
 ---| "invalid_snapshot"     the native capture is not a snapshot                    (client)
 ---| "invalid_option"       an entry of the option list is not a table              (client)
@@ -107,6 +111,7 @@
 ---@field editing boolean
 ---@field worldEligible boolean this world attachment is the gameplay one
 ---@field announced boolean     `open77:session:gameplayReady` has gone out
+---@field panel boolean         this resource's own panel is on screen
 
 --- Which of this resource's decisions an event reports.
 ---@alias AppearanceEventName
@@ -118,6 +123,8 @@
 ---| "created"          a character was built and stored, or was not
 ---| "saved"            an edit was committed, or was refused
 ---| "characterChanged" the live character switched underneath this resource
+---| "panelOpened"      this resource's own panel came up
+---| "panelClosed"      it went down; `reason` says what took it down
 
 --- What arrives on `OPX_APPEARANCE_CONFIG.EVENT`, with a bare `AddEventHandler`.
 ---@class AppearanceEvent
@@ -127,3 +134,15 @@
 ---@field citizenId CitizenId|nil
 ---@field family BodyFamily|nil    on `needsCreation`: the body the creator must build
 ---@field unchanged boolean|nil    on `saved`: the face matched the stored one, nothing written
+---@field reason AppearancePanelReason|nil  on `panelClosed`: what took the panel down
+
+--- Why a panel closed.
+---@alias AppearancePanelReason
+---| "caller"            `closePanel`, or a row that opens the native editor
+---| "player"            Escape, the pause key, or BACK at the top of the list
+---| "appearance_busy"   a native modal came up, and the panel never draws over one
+---| "character_changed" the live character switched underneath the panel
+---| "no_character"      the character unloaded
+---| "owner_stopped"     the resource that opened it is no longer running
+---| "owner_reloaded"    the resource that opened it reloaded
+---| "menu_closed"       opx77_menu took the list down for a reason of its own
