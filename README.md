@@ -40,6 +40,9 @@ sequence and no appearance resource has ever gated it.
 ## Features
 
 - One stored face per character, kept by `opx77_core` on the citizen id it issued
+- One panel every caller shares — a ripperdoc, a clothes store, a menu — instead of each
+  shipping its own
+- The panel is `opx77_menu`'s, and optional — a missing menu costs one log line
 - The join-time readiness announcement, sent only once the player is genuinely playable
 - The vanilla character creator for a character that arrives with no face
 - A saved face from an older game build is refused rather than misapplied
@@ -48,8 +51,9 @@ sequence and no appearance resource has ever gated it.
 ## Commands
 
 None. A chat command cannot be registered from a client resource on this platform, and this
-one has no server half to register one from. The editor is opened through the `openEditor`
-export — a menu, a ripperdoc prop or any other client resource calls it.
+one has no server half to register one from. The panel is opened through the `openPanel`
+export and the native editor through `openEditor` — a menu, a ripperdoc prop or any other
+client resource calls them.
 
 ## Exports
 
@@ -69,6 +73,11 @@ and `opx77_charcreator` own that decision and call these.
 | `isOpen` | whether a native modal is on screen, and which |
 | `isSettled` | whether this world entry's appearance work has finished |
 | `state` | what this client knows, for a face that did not come back |
+| `openPanel` | this resource's own panel, as a list drawn by `opx77_menu` |
+| `closePanel` | take your own panel back down |
+
+`openPanel` and `closePanel` are new in `0.5.0`; the ten above them are unchanged. `state`
+reports one more field, `panel`.
 
 `isSettled` is the gate question — is this world entry's face done, and if not what is it
 waiting on. `state` is the diagnostic report behind it. Every export answers a table carrying
@@ -93,6 +102,68 @@ AddEventHandler("opx77:appearance", function(payload)
   end
 end)
 ```
+
+## The panel
+
+One resource owns the appearance panel, so a ripperdoc, a clothes store and a menu all call
+the same one instead of each shipping their own page. It is a **list, drawn by `opx77_menu`**:
+`openPanel` puts it up, `closePanel` takes it down, and only for the caller that opened it.
+
+The sections are the list's levels, and each root row carries its own summary as a value:
+
+| Level | Rows |
+|---|---|
+| root | `Looks`, `Body`, `Outfits` |
+| `Looks` | the saved look, **Wear it**, and the two ways into the native editor |
+| `Body` | the body family, stated and not offered — `opx77_core` owns it |
+| `Outfits` | one row saying it is not built |
+
+There is no `section` argument. A level is reached by pressing ENTER on its row, and
+`opx77_menu` publishes nothing that opens a menu already inside one. A row that is not
+actionable is drawn disabled with the reason as its value — `none`, `other build`, `worn`,
+`Not right now.` — rather than greyed out with nothing beside it.
+
+**It is the frame around the face, not the face.** There is no face editor here and there
+cannot be one: an option is `{ part, name, value, choices }` where `name` is an opaque 64-bit
+catalogue hash with no human label anywhere on the platform, and no camera native is shipped.
+Cyberpunk's own modal is the only face editor there is, and the panel's job is to open it.
+
+**`opx77_menu` is optional and is not declared as a dependency.** With it stopped `openPanel`
+answers `menu_not_running`, an `open` that fails on the way out costs one `Open77.log.warn`
+line, and every other export is unaffected.
+
+**The panel never draws over the native mirror.** `Open77.appearance.isOpen()` is the truth,
+and a raise from it counts as "on screen": while the panel is up it is read every 200 ms, and
+a modal — this resource's or anybody's — takes the panel down with the reason
+`appearance_busy`. `openPanel` is refused with the same code while one is already up.
+**Edit face** and **Hair only** take the panel down and wait for `opx77_menu` to answer the
+close *before* the mirror is asked for; reopen the panel afterwards.
+
+One panel at a time, keyed on `GetInvokingResource()`. A second resource is refused with
+`panel_busy`; the owner calling `openPanel` again redraws its own. The panel closes itself
+when its owner stops or reloads, when the character changes or unloads, on Escape and the
+pause key, and on BACK at the top of the list.
+
+`panelOpened` and `panelClosed` reach `OPX_APPEARANCE_CONFIG.EVENT` like every other decision
+here. `panelClosed` carries a `reason`: `caller`, `player`, `appearance_busy`,
+`character_changed`, `no_character`, `owner_stopped`, `owner_reloaded`, or `menu_closed` when
+`opx77_menu` took the list down for a reason of its own.
+
+### One saved look, and why
+
+The core stores exactly one face per character — `opx77_characters.appearance`, a single
+nullable JSON column, written by `opx77_core/server/appearance.lua` and carried in
+`PlayerData`. There is no second row and no slot number, so **a wardrobe of saved looks is not
+possible today without core work**: another table, its schema file, and a server half to write
+it — none of which a satellite may own. The panel therefore shows the one stored look, says
+whether the puppet is wearing it, and puts it back on when it is not.
+
+### Outfits
+
+Not built. The level is drawn so that it is visibly a gap rather than a missing feature.
+What it needs first is a clothing catalogue with human labels — item id, name, slot, and what
+a character owns — and nothing on this platform publishes one. No data shape is invented here
+in advance of it.
 
 ## Who opens the creator
 
@@ -215,7 +286,8 @@ other capture.
 ## Configuration
 
 `config.lua`: the language, the event name, whether to raise toasts, the catalogue builds, the
-two deadlines above and the two retry counts.
+two deadlines above and the two retry counts. The panel has nothing to configure here: how it
+is anchored and how wide it is drawn belong to `opx77_menu`.
 
 ## Locales
 

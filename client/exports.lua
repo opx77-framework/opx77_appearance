@@ -5,6 +5,7 @@ local State = OpxAppearance.state
 local Snapshot = OpxAppearance.snapshot
 local Runtime = OpxAppearance.runtime
 local Editor = OpxAppearance.editor
+local Panel = OpxAppearance.panel
 
 ---@param ok boolean
 ---@param values table|nil
@@ -32,6 +33,14 @@ end
 local function nobody()
   if caller() == nil then return response(false, { error = "export_call_required" }) end
   return nil
+end
+
+--- Which generation of the caller's code is asking, so a reloaded caller's panel goes away
+--- with it. nil when the host will not say.
+---@return integer|nil
+local function generation()
+  local value = GetInvokingResourceGeneration()
+  return type(value) == "number" and value or nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -154,6 +163,41 @@ exports("isOpen", function()
 end)
 
 -- ---------------------------------------------------------------------------
+-- This resource's own surface
+-- ---------------------------------------------------------------------------
+
+--- Put this resource's panel on screen, drawn by opx77_menu: the saved look, the body family
+--- and the two ways into the native editor. `ok = true` means ASKED, as everywhere here.
+---@return AppearanceQueued
+exports("openPanel", function()
+  local gone = nobody()
+  if gone then return gone end
+  local invoker = caller()
+  local ready, why = Panel.available()
+  if not ready then return response(false, { error = why }) end
+  if State.citizenId == nil then return response(false, { error = "no_character" }) end
+
+  -- the mirror is the only face editor there is, and the panel never draws over it
+  if Panel.nativeUp() then return response(false, { error = "appearance_busy" }) end
+  if Panel.isOpen() and Panel.owner() ~= invoker then
+    return response(false, { error = "panel_busy" })
+  end
+
+  return Panel.open(invoker, generation())
+end)
+
+--- Take your own panel back down. A caller may not close another resource's.
+---@return AppearanceResponse
+exports("closePanel", function()
+  local gone = nobody()
+  if gone then return gone end
+  if not Panel.isOpen() then return response(false, { error = "no_panel_open" }) end
+  if Panel.owner() ~= caller() then return response(false, { error = "not_owner" }) end
+  Panel.close("caller")
+  return response(true, {})
+end)
+
+-- ---------------------------------------------------------------------------
 -- Where the session is
 -- ---------------------------------------------------------------------------
 
@@ -188,6 +232,7 @@ exports("state", function()
   local gone = nobody()
   if gone then return gone end
   local report = State.report()
+  report.panel = Panel.isOpen()
   report.ok = true
   return report
 end)

@@ -39,4 +39,32 @@ OpxAppearance.Locale.register("fr", {
   ["error.unavailable"]            = "Indisponible pour le moment.",
   ["error.tooFast"]                = "Ralentissez et réessayez dans un instant.",
   ["error.notLoggedIn"]            = "Vous n'êtes pas encore en jeu.",
+
+  ["appearance.panel.title"]       = "Apparence",
+  ["appearance.panel.looks"]       = "Visages",
+  ["appearance.panel.body"]        = "Corps",
+  ["appearance.panel.outfits"]     = "Tenues",
+  ["appearance.panel.soon"]        = "bientôt",
+  ["appearance.panel.bodyType"]    = "Type de corps",
+  ["appearance.panel.savedLook"]   = "Visage enregistré",
+  ["appearance.panel.worn"]        = "porté",
+  ["appearance.panel.stored"]      = "enregistré",
+  ["appearance.panel.none"]        = "aucun",
+  ["appearance.panel.otherBuild"]  = "autre version",
+  ["appearance.panel.noLook"]      =
+    "Aucun visage n'est encore enregistré pour ce personnage.",
+  ["appearance.panel.oneLook"]     =
+    "Un seul visage est enregistré par personnage. Valider l'éditeur le remplace.",
+  ["appearance.panel.wear"]        = "Le porter",
+  ["appearance.panel.editFace"]    = "Modifier le visage",
+  ["appearance.panel.editHair"]    = "Cheveux seuls",
+  ["appearance.panel.editNote"]    =
+    "Ouvre le miroir de personnalisation de Cyberpunk.",
+  ["appearance.panel.bodyNote"]    =
+    "Votre type de corps appartient au personnage. En changer revient à en créer un autre.",
+  ["appearance.panel.outfitsNote"] = "Les tenues et les vêtements ne sont pas encore faits.",
+  ["appearance.panel.wearing"]     = "Remise de votre visage enregistré.",
+  ["appearance.panel.wornNow"]     = "Votre visage enregistré est de retour.",
+  ["appearance.panel.alreadyWorn"] = "Vous le portez déjà.",
+  ["appearance.panel.busy"]        = "Pas maintenant.",
 })

@@ -1,10 +1,10 @@
 resource "opx77_appearance"
-version "0.4.0"
+version "0.5.0"
 open77_version ">=0.0.1"
 auto_start true
 
 reload_policy "local" -- a reload is a script reload, not a reconnect: the face is re-read
-                      -- from PlayerData, and nothing here survives one
+                      -- from PlayerData, the panel is taken down, and nothing survives one
 
 shared_script "config.lua"
 shared_script "shared/locale.lua"
@@ -15,6 +15,7 @@ client_script "client/snapshot.lua"
 client_script "client/state.lua" -- after snapshot.lua: the redundant-restore guard compares
 client_script "client/main.lua"
 client_script "client/editor.lua" -- after main.lua: it calls into the runtime
+client_script "client/panel.lua" -- after editor.lua: a panel row opens the native editor
 client_script "client/exports.lua" -- last: publishing the surface claims everything it reads
 
 permissions {
@@ -24,6 +25,9 @@ permissions {
   -- a face and never put it back on.
   "player.appearance.read",
   "player.appearance.edit",
+
+  -- No `webui.*`: this resource draws nothing of its own. The panel is a menu, and
+  -- opx77_menu owns that surface.
 
   -- Deliberately not requested: database.access, players.life.*, world.*, combat.config.
   -- opx77_core owns the face and every write to it; this resource only dresses a puppet.
