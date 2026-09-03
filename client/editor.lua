@@ -104,12 +104,8 @@ local function enterPristine(reason)
   Runtime.announce()
 end
 
---- Open the vanilla character creator for the live character. The caller is a character
---- creator resource answering `needsCreation`; this resource never decides to open one.
----
---- Everything after the player confirms belongs here: the capture, the body-family check
---- against the character, the save through opx77_core, spending the bootstrap and letting the
---- world load. The caller hears the outcome on the resource's event channel.
+--- Open the vanilla character creator for the live character; the caller is answering
+--- `needsCreation`. The outcome reaches the event channel as `created`.
 ---@return boolean, string|nil
 function Editor.creator()
   if State.citizenId == nil then return false, "no_character" end
@@ -118,7 +114,7 @@ function Editor.creator()
   if State.creationRefused then return false, "creation_refused" end
   if type(State.canonical) == "table" then return false, "already_has_a_face" end
   if Runtime.bootstrapPhase() == "ready" then return false, "bootstrap_already_spent" end
-  State.creationWarned = true
+  State.creationAskedAtMs = 0 -- answered: the unanswered-creation warning must not fire
   if not openCreator() then return false, "character_creator_unavailable" end
   return true
 end
@@ -141,12 +137,8 @@ end
 -- Editing a face
 -- ---------------------------------------------------------------------------
 
---- Store a face on the live character, through opx77_core. Defaults to a capture of the
---- puppet, so a caller that has just applied one can call this with nothing.
----
---- Answers that the save was asked for. The core validates and writes it; the outcome reaches
---- the event channel as `saved`. A face identical to the stored one is completed here without
---- a round trip, because the core answers an unchanged save with silence.
+--- Store a face on the live character through opx77_core, defaulting to a capture of the
+--- puppet. Answers that the save was asked for; the outcome reaches the channel as `saved`.
 ---@param snapshot AppearanceSnapshot|nil
 ---@return boolean, string|nil
 function Editor.save(snapshot)
@@ -156,9 +148,7 @@ function Editor.save(snapshot)
 
   local payload, reason
   if snapshot == nil then
-    local capture, captureError = Open77.appearance.capture()
-    payload, reason = Snapshot.forNetwork(capture)
-    reason = reason or captureError
+    payload, reason = Snapshot.capture()
   else
     payload, reason = Snapshot.forNetwork(snapshot)
   end
@@ -168,8 +158,11 @@ function Editor.save(snapshot)
   end
 
   if Snapshot.same(payload, State.canonical) then
-    Runtime.publish({ ok = true, event = "saved", citizenId = State.citizenId,
-                      unchanged = true })
+    -- after this call has answered, or a caller that starts listening on the answer misses it
+    SetTimeout(0, function()
+      Runtime.publish({ ok = true, event = "saved", citizenId = State.citizenId,
+                        unchanged = true })
+    end)
     return true
   end
 
@@ -192,6 +185,9 @@ function Editor.open(mode)
   -- would otherwise hide the specific one
   if State.creating then return false, "character_creation_in_progress" end
   if State.editing or Open77.appearance.isOpen() then return false, "appearance_busy" end
+  -- a captured face still with the core: its answer rolls the puppet back and releases the
+  -- mutation transaction, and both would land under an open mirror
+  if State.commit ~= nil then return false, "appearance_busy" end
   if State.citizenId == nil then return false, "no_character" end
 
   -- Said before the mirror is on screen: an editor that silently opens on the default face
@@ -229,10 +225,9 @@ AddEventHandler("open77:appearance:confirmed", function()
   end
   State.editing = false
 
-  local capture, captureError = Open77.appearance.capture()
-  local payload, payloadError = Snapshot.forNetwork(capture)
+  local payload, why = Snapshot.capture()
   if payload == nil then
-    local why = tostring(payloadError or captureError or "capture_failed")
+    why = tostring(why or "capture_failed")
     rollback(why)
     return Runtime.notify("error", "appearance.captureFailed", { reason = why })
   end
@@ -242,7 +237,8 @@ AddEventHandler("open77:appearance:confirmed", function()
   if Snapshot.same(payload, State.canonical) then
     State.wore()
     SetTimeout(250, Runtime.finishMutation)
-    Runtime.publish({ ok = true, event = "saved", citizenId = State.citizenId })
+    Runtime.publish({ ok = true, event = "saved", citizenId = State.citizenId,
+                      unchanged = true })
     return Runtime.notify("success", "appearance.saved")
   end
 
@@ -355,13 +351,11 @@ local function takeCreatorResult(result)
     return
   end
 
-  local capture, captureError = Open77.appearance.capture()
-  local payload, payloadError = Snapshot.forNetwork(capture)
+  local payload, why = Snapshot.capture()
   if payload == nil then
     State.creating = false
     Runtime.finishMutation()
-    Open77.session.failCharacterBootstrap(
-      tostring(payloadError or captureError or "character_capture_failed"))
+    Open77.session.failCharacterBootstrap(tostring(why or "character_capture_failed"))
     return
   end
 

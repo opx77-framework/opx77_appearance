@@ -14,13 +14,14 @@
 ---@alias AppearanceError
 ---| "export_call_required" no invoking resource, so the call came from inside      (client)
 ---| "no_character"         opx77_core has no character loaded here                 (client)
----| "appearance_busy"      an editor or a creator is already on screen             (client)
+---| "appearance_busy"      a modal is on screen, or a capture is with the core     (client)
 ---| "character_creation_in_progress" the character is still being built            (client)
 ---| "invalid_mode"         not "ripperdoc" or "hairdresser"                        (client)
----| "capture_failed"       the engine would not answer what the puppet wears        (client)
----| "already_has_a_face"   `creator` on a character that has a stored one           (client)
----| "bootstrap_already_spent" `creator` after the world has already loaded          (client)
----| "creation_refused"     this character's creator run ended for good              (client)
+---| "capture_failed"       the engine would not answer what the puppet wears       (client)
+---| "already_has_a_face"   `openCreator` on a character that has a stored one      (client)
+---| "bootstrap_already_spent" `openCreator` after the world has already loaded     (client)
+---| "creation_refused"     this character's creator run ended for good             (client)
+---| "character_creator_unavailable" the engine would not open the creator          (client)
 ---| "not_sent"             the net event was not accepted                          (client)
 ---| "save_timeout"         opx77_core never answered a captured face               (client)
 ---| "invalid_snapshot"     the native capture is not a snapshot                    (client)
@@ -62,23 +63,23 @@
 ---@field snapshot AppearanceSnapshot|nil
 ---@field citizenId CitizenId|nil
 
---- What `family` answers. The value is opx77_core's `charInfo.gender` and nothing here can
---- change it.
+--- What `getFamily` answers. The value is opx77_core's `charInfo.gender` and nothing here
+--- can change it.
 ---@class AppearanceFamily : AppearanceResponse
 ---@field family BodyFamily|nil
 ---@field citizenId CitizenId|nil
 
---- What `isSettled` answers. `waiting` names what the session is still short of, and
---- `"creation"` is the one to branch on: the character has no face and nothing has called
---- `creator` yet.
+--- What `isSettled` answers. `waiting` names what the session is short of; `"creation"` means
+--- the character has no face and nothing has called `openCreator`.
 ---@class AppearanceSettled : AppearanceResponse
 ---@field settled boolean    the appearance work for this world entry has finished
 ---@field announced boolean  `open77:session:gameplayReady` has gone out
 ---@field waiting "server"|"restore"|"creation"|"creator"|nil
 ---@field citizenId CitizenId|nil
 
----@class AppearanceOpenResult : AppearanceResponse
----@field queued boolean|nil     true means asked, never "the modal is on screen"
+--- What a write or a modal call answers: that it was asked for, never that it has happened.
+---@class AppearanceQueued : AppearanceResponse
+---@field queued boolean|nil     true means asked, never "it is done"
 ---@field citizenId CitizenId|nil
 
 ---@class AppearanceOpenState : AppearanceResponse
@@ -86,7 +87,8 @@
 ---@field editing boolean   and it is this resource's editor
 ---@field creating boolean  and it is this resource's character creator
 
----@class AppearanceCurrent : AppearanceResponse
+--- What `getSkin` answers.
+---@class AppearanceSkin : AppearanceResponse
 ---@field citizenId CitizenId|nil
 ---@field family BodyFamily|nil
 ---@field snapshot AppearanceSnapshot|nil  what `PlayerData.appearance` carries
@@ -97,7 +99,8 @@
 ---@field family BodyFamily|nil
 ---@field stored boolean        a stored snapshot is held on this client
 ---@field wearing boolean       the puppet is wearing it
----@field settled boolean       this world entry's face has been decided
+---@field decided boolean       this world entry's face has been decided
+---@field settled boolean       and every piece of work behind that decision has finished
 ---@field restoring boolean     a restore is in flight
 ---@field committing boolean    a captured face is with the core, unanswered
 ---@field creating boolean
@@ -110,7 +113,7 @@
 ---| "gameplayReady"    the readiness announcement went out; the player may be placed
 ---| "restored"         a stored face was put on the puppet, or could not be
 ---| "settled"          this world entry's face was decided, and there is none to wear
----| "needsCreation"    this character has no face; call `creator` to open one
+---| "needsCreation"    this character has no face; call `openCreator` to open one
 ---| "applied"          `setSkin` reached the puppet, or could not
 ---| "created"          a character was built and stored, or was not
 ---| "saved"            an edit was committed, or was refused
@@ -122,3 +125,5 @@
 ---@field event AppearanceEventName
 ---@field error AppearanceError|nil
 ---@field citizenId CitizenId|nil
+---@field family BodyFamily|nil    on `needsCreation`: the body the creator must build
+---@field unchanged boolean|nil    on `saved`: the face matched the stored one, nothing written

@@ -75,6 +75,11 @@ State.familyAttempts = 0
 --- character changes or this resource restarts.
 State.creationRefused = false
 
+--- A `needsCreation` that nothing has answered yet: when it went out, and whether the
+--- unanswered warning has already been said. 0 means nothing is waiting on a creator.
+State.creationAskedAtMs = 0
+State.creationWarned = false
+
 --- The record of having spent the one-shot character bootstrap. Not a cache of the phase: the
 --- phase is the host's and is read from the host.
 State.bootstrapResolved = false
@@ -158,6 +163,8 @@ function State.unload()
   State.creating = false
   State.commit = nil
   State.creationRefused = false
+  State.creationAskedAtMs = 0
+  State.creationWarned = false
   State.familyAttempts = 0
   State.buildWarned = false
   State.settled = false
@@ -174,7 +181,8 @@ function State.report()
     family = State.family,
     stored = State.canonical ~= nil,
     wearing = State.wearing(),
-    settled = State.settled,
+    decided = State.settled,
+    settled = State.appearanceSettled(),
     restoring = State.restoreToken ~= State.restoreSettledToken,
     committing = State.commit ~= nil,
     creating = State.creating,

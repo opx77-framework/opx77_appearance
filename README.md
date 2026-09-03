@@ -48,8 +48,8 @@ sequence and no appearance resource has ever gated it.
 ## Commands
 
 None. A chat command cannot be registered from a client resource on this platform, and this
-one has no server half to register one from. The editor is opened through the `editor` and
-`barber` exports — a menu, a ripperdoc prop or any other client resource calls them.
+one has no server half to register one from. The editor is opened through the `openEditor`
+export — a menu, a ripperdoc prop or any other client resource calls it.
 
 ## Exports
 
@@ -61,19 +61,21 @@ and `opx77_charcreator` own that decision and call these.
 |---|---|
 | `getSkin` | the stored face for the live character, as `opx77_core` holds it |
 | `captureSkin` | what the puppet is wearing right now, ready to hand back |
-| `family` | the character's body family, `"female"` or `"male"` |
+| `getFamily` | the character's body family, `"female"` or `"male"` |
 | `setSkin(snapshot)` | put a face on the puppet; stores nothing |
 | `saveSkin(snapshot?)` | store one through `opx77_core`; defaults to a capture |
-| `editor(mode?)` | the native mirror, `"ripperdoc"` or `"hairdresser"` |
-| `barber` | the same call with the mode fixed |
-| `creator` | the vanilla character creator, for a character with no face |
+| `openEditor(mode?)` | the native mirror, `"ripperdoc"` or `"hairdresser"` |
+| `openCreator` | the vanilla character creator, for a character with no face |
 | `isOpen` | whether a native modal is on screen, and which |
 | `isSettled` | whether this world entry's appearance work has finished |
 | `state` | what this client knows, for a face that did not come back |
 
-Every one answers a table carrying `ok`, never raises, and takes its caller from
-`GetInvokingResource()`. A write answers that it was **asked for**: the engine schedules an apply
-through the vanilla mirror and `opx77_core` validates a save, so the outcome arrives on
+`isSettled` is the gate question — is this world entry's face done, and if not what is it
+waiting on. `state` is the diagnostic report behind it. Every export answers a table carrying
+`ok`, never raises, and takes its caller from `GetInvokingResource()`.
+
+A write answers that it was **asked for**: the engine schedules an apply through the vanilla
+mirror and `opx77_core` validates a save, so the outcome arrives on
 `OPX_APPEARANCE_CONFIG.EVENT` rather than in the return value.
 
 ```lua
@@ -101,7 +103,7 @@ its event channel and waits:
 AddEventHandler("opx77:appearance", function(payload)
   if payload.event ~= "needsCreation" then return end
   -- draw whatever you want, then:
-  Open77.exports.call("opx77_appearance", "creator")
+  Open77.exports.call("opx77_appearance", "openCreator")
 end)
 ```
 
@@ -166,7 +168,7 @@ out on a correct save.
 created the character, and it is the value this resource resolves the engine's character
 bootstrap with.
 
-So **nothing here can change it**. The `open` export never passes a gender to the native
+So **nothing here can change it**. `openEditor` never passes a gender to the native
 editor, and a character creator that comes back on the other body is refused with
 `body_family_mismatch` and reopened, `FAMILY_RETRIES` times. Changing a character's body type
 means changing the character, in `opx77_core`.
@@ -206,9 +208,9 @@ stores anything.
 | The core refuses the write, or never answers | the same, with the reason on screen |
 
 In the last two, the creator is **not** reopened for that character again this session, or it
-would come straight back up on top of somebody standing in Night City. The `open` export is the
-way back: it opens an editor on a character with no stored face and saves the first one like
-any other capture.
+would come straight back up on top of somebody standing in Night City. `openEditor` is the way
+back: it opens an editor on a character with no stored face and saves the first one like any
+other capture.
 
 ## Configuration
 

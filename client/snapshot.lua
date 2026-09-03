@@ -55,6 +55,18 @@ function Snapshot.forNetwork(capture)
   return payload
 end
 
+--- What the puppet is wearing, in network form. Never raises: the engine's own refusal is
+--- answered as an error code.
+---@return table|nil payload, string|nil error
+function Snapshot.capture()
+  local read, capture, failure = pcall(Open77.appearance.capture)
+  if not read then return nil, "capture_failed" end
+  if type(capture) ~= "table" then return nil, tostring(failure or "capture_failed") end
+  local payload, reason = Snapshot.forNetwork(capture)
+  if payload == nil then return nil, tostring(reason) end
+  return payload
+end
+
 --- Whether two snapshots are the same face. Used to skip an apply the puppet does not need
 --- and a save the core would answer with silence.
 ---@param left table|nil
