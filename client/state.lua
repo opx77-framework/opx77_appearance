@@ -155,7 +155,19 @@ function State.enterWorld()
 end
 
 --- The character went. Everything about a face belongs to a character, so all of it goes.
+---
+--- That includes a restore still in flight. It carries a token and stops the moment the token
+--- stops being current, but nothing here used to move the token, so a restore begun for the
+--- character that just left kept running: it waited for the world, then applied the OLD face
+--- to whoever the puppet now belongs to, reading `State.canonical` fields that this function
+--- had already set to nil. Bumping the token supersedes it at its next check.
+---
+--- `restoreSettledToken` follows the bump deliberately. Leaving it behind would make
+--- `appearanceSettled` answer false for ever, and the gameplay announcement -- the only thing
+--- that releases this resource's entry hold -- waits on it and nothing else.
 function State.unload()
+  State.restoreToken = State.restoreToken + 1
+  State.restoreSettledToken = State.restoreToken
   State.citizenId = nil
   State.family = nil
   State.canonical = nil

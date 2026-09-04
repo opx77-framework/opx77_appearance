@@ -19,13 +19,28 @@ local WATCH_MS = 200
 
 --- The scheduler clock in milliseconds; `monotonic` answers SECONDS. A non-finite reading is
 --- dropped rather than propagated: a NaN would expire nothing, an infinity everything.
+---
+--- On failure it falls back to `GetGameTimer` rather than holding the last reading. Holding
+--- it looks harmless and is not: every deadline here is measured against this clock, so a
+--- frozen one means the commit deadline never passes, `State.commit` is never cleared, and
+--- the editor answers `appearance_busy` to every caller for the rest of the session.
 ---@return integer
 local lastMs = 0
+local clockWarned = false
 local function nowMs()
   local read, seconds = pcall(Open77.time.monotonic)
   if read and type(seconds) == "number" and seconds == seconds and
     seconds >= 0 and seconds < math.huge then
     lastMs = math.floor(seconds * 1000)
+    return lastMs
+  end
+  local ticked, ms = pcall(GetGameTimer)
+  if ticked and type(ms) == "number" and ms == ms and ms >= 0 and ms < math.huge then
+    if not clockWarned then
+      clockWarned = true
+      Open77.log.warn("Open77.time.monotonic unreadable; falling back to GetGameTimer")
+    end
+    lastMs = math.floor(ms)
   end
   return lastMs
 end
@@ -225,7 +240,11 @@ function Runtime.beginRestore(snapshot, citizen, origin)
     if tostring(reason) == "body_gender_switch_requires_reload" then
       -- Loading the matching pristine puppet is a world transition, so the restore comes back
       -- around on the next world entry.
-      local switched, switchReason = Open77.appearance.switchBodyFamily(State.canonical.gender,
+      -- Re-read rather than trust the captured snapshot: this is reached after up to eight
+      -- seconds of retries, and the character can have been put down in the meantime.
+      local canonical = State.canonical
+      if type(canonical) ~= "table" or canonical.gender == nil then return end
+      local switched, switchReason = Open77.appearance.switchBodyFamily(canonical.gender,
         false)
       if switched then
         return Runtime.notify("info", "appearance.bodySwitching")
