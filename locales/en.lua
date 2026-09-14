@@ -24,10 +24,12 @@ OpxAppearance.Locale.register("en", {
   ["appearance.familyMale"]        = "male",
 
   ["appearance.bootstrapFailed"]   = "Character bootstrap failed: {reason}",
-  ["appearance.creatorUnavailable"] = "Character creator unavailable: {reason}",
-  ["appearance.created"]           = "Character created. Entering Night City.",
+  ["appearance.creatorUnavailable"] = "Appearance editor unavailable: {reason}",
+  ["appearance.creatorSwitching"]  =
+    "Loading your character's body type. The appearance editor will open next.",
+  ["appearance.created"]           = "Appearance saved. Welcome to Night City.",
   ["appearance.creationNotSaved"]  =
-    "Your character was not saved ({reason}). You are entering with the default face.",
+    "No appearance was saved ({reason}). You keep the default face for now.",
   ["appearance.wrongBody"]         = "Your character is {family}. Build that body type.",
 
   ["appearance.invalid"]           = "That appearance could not be read.",

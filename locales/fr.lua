@@ -26,10 +26,12 @@ OpxAppearance.Locale.register("fr", {
   ["appearance.familyMale"]        = "masculin",
 
   ["appearance.bootstrapFailed"]   = "L'initialisation du personnage a échoué : {reason}",
-  ["appearance.creatorUnavailable"] = "Créateur de personnage indisponible : {reason}",
-  ["appearance.created"]           = "Personnage créé. Entrée dans Night City.",
+  ["appearance.creatorUnavailable"] = "Éditeur d'apparence indisponible : {reason}",
+  ["appearance.creatorSwitching"]  =
+    "Chargement du corps de votre personnage. L'éditeur d'apparence s'ouvrira ensuite.",
+  ["appearance.created"]           = "Apparence enregistrée. Bienvenue à Night City.",
   ["appearance.creationNotSaved"]  =
-    "Personnage non enregistré ({reason}). Vous entrez avec le visage par défaut.",
+    "Aucune apparence enregistrée ({reason}). Vous gardez le visage par défaut pour l'instant.",
   ["appearance.wrongBody"]         = "Votre personnage est {family}. Construisez ce corps.",
 
   ["appearance.invalid"]           = "Cette apparence n'a pas pu être lue.",

@@ -138,8 +138,9 @@ exports("openEditor", function(mode)
   return response(true, { queued = true, citizenId = State.citizenId })
 end)
 
---- Open the vanilla character creator for a character that has no face yet. This is the call
---- that answers `needsCreation`; the outcome arrives on the event channel as `created`.
+--- Open the in-world editor for a character that has no face yet, on the body family it was
+--- created with -- reloading the body first when the world is on the other one. This is the
+--- call that answers `needsCreation`; the outcome arrives on the event channel as `created`.
 ---@return AppearanceQueued
 exports("openCreator", function()
   local gone = nobody()
@@ -202,7 +203,8 @@ end)
 -- ---------------------------------------------------------------------------
 
 --- Whether the appearance work for this world entry has finished -- restored, created, or
---- honestly failed. `open77:session:gameplayReady` goes out on the same condition.
+--- honestly failed. `open77:session:gameplayReady` goes out on the same condition, and never
+--- before a character is loaded.
 ---@return AppearanceSettled
 exports("isSettled", function()
   local gone = nobody()
@@ -214,6 +216,8 @@ exports("isSettled", function()
     waiting = "creation"
   elseif not State.settled then
     waiting = "server"
+  elseif State.bodyReloading then
+    waiting = "body"
   elseif State.restoreToken ~= State.restoreSettledToken then
     waiting = "restore"
   end
