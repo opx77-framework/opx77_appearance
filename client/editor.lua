@@ -1,4 +1,4 @@
---- The two modal transactions: building a character, and editing one.
+--- The two modal transactions: building a new character's face, and editing one.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -77,60 +77,127 @@ end
 -- Building a character
 -- ---------------------------------------------------------------------------
 
---- Open the vanilla creator for a character that has no stored face.
----@return boolean
-local function openCreator()
-  -- No deadline while the modal is open; a player deliberating for an hour is not a fault.
-  State.creating = true
-  local opened, reason = Open77.session.requestCharacterCreator()
-  if opened then return true end
-  State.creating = false
-  Open77.session.failCharacterBootstrap(reason or "character_creator_unavailable")
-  Runtime.notify("error", "appearance.creatorUnavailable", { reason = tostring(reason) })
-  return false
-end
-
---- End a creation that did not store anything, and let the player into the world on the
---- pristine face. The creator is not reopened for this character again.
+--- End a creation that did not store anything, and let the player in on the pristine face of
+--- their own body. The creation is not reopened for this character again: `openEditor` is the
+--- way back, and it saves the first face like any other capture.
 ---@param reason any
 local function enterPristine(reason)
   State.creating = false
+  State.creatorUp = false
   State.commit = nil
   State.creationRefused = true
   Runtime.publish({ ok = false, event = "created", error = tostring(reason),
                     citizenId = State.citizenId })
-  Runtime.resolveBootstrap(State.family)
   Runtime.notify("error", "appearance.creationNotSaved", { reason = tostring(reason) })
-  Runtime.announce()
+  Runtime.beginPristine("creation_ended")
 end
 
---- Open the vanilla character creator for the live character; the caller is answering
---- `needsCreation`. The outcome reaches the event channel as `created`.
+--- A creation editor is being waited for or opened, so a second ask does not open two.
+local creatorOpening = false
+
+--- Open the in-world editor on the character's own body, for a character that has no stored
+--- face. The editor for the other body opens on that body's puppet, so a body that differs is
+--- reloaded first and the editor is reopened from `takeBodyFamilyTransition` after it.
+local function openCreator()
+  -- No deadline while the modal is open; a player deliberating for an hour is not a fault.
+  State.creating = true
+  -- one opening at a time: the transition and the worker can both ask after a reload
+  if creatorOpening or State.creatorUp then return end
+  creatorOpening = true
+  local citizen = State.citizenId
+  CreateThread(function()
+    -- the editor needs the gameplay puppet, which the character's placement can still be
+    -- putting back up
+    while not Runtime.faceable() do
+      if not State.creating or State.citizenId ~= citizen then
+        creatorOpening = false
+        return
+      end
+      Wait(WATCH_MS)
+    end
+    creatorOpening = false
+    if not State.creating or State.creatorUp or State.citizenId ~= citizen then return end
+
+    local family = Snapshot.isFamily(State.family) and State.family or nil
+    if family ~= nil and Runtime.bodyFamily() ~= family then
+      if State.familyAttempts >= Config.FAMILY_RETRIES then
+        return enterPristine("body_family_mismatch")
+      end
+      local outcome, reason = Runtime.switchBody(family, true)
+      if outcome == "switching" then
+        State.familyAttempts = State.familyAttempts + 1
+        return Runtime.notify("info", "appearance.creatorSwitching")
+      end
+      if outcome == nil then
+        Runtime.notify("error", "appearance.bodyChangeFailed", { reason = tostring(reason) })
+        return enterPristine("body_family_mismatch")
+      end
+    end
+
+    local opened, reason = Open77.appearance.open({ mode = "ripperdoc", gender = family })
+    if opened then
+      State.creatorUp = true
+      return
+    end
+    Runtime.notify("error", "appearance.creatorUnavailable", { reason = tostring(reason) })
+    enterPristine("character_creator_unavailable")
+  end)
+end
+
+--- Open the in-world editor for the live character, on the body family it was created with;
+--- the caller is answering `needsCreation`. The outcome reaches the event channel as `created`.
 ---@return boolean, string|nil
 function Editor.creator()
   if State.citizenId == nil then return false, "no_character" end
   if State.creating then return false, "appearance_busy" end
   if State.editing or Open77.appearance.isOpen() then return false, "appearance_busy" end
+  if State.commit ~= nil then return false, "appearance_busy" end
   if State.creationRefused then return false, "creation_refused" end
   if type(State.canonical) == "table" then return false, "already_has_a_face" end
-  if Runtime.bootstrapPhase() == "ready" then return false, "bootstrap_already_spent" end
-  State.creationAskedAtMs = 0 -- answered: the unanswered-creation warning must not fire
-  if not openCreator() then return false, "character_creator_unavailable" end
+  State.creationAskedAtMs = 0 -- answered: the unanswered-creation wait must not expire
+  openCreator()
   return true
 end
 
---- The core stored the face the creator built: spend the bootstrap and let the world load.
+--- The core stored the face the editor built.
 function Editor.finishCreation()
   State.creating = false
+  State.creatorUp = false
   State.wore()
-  if not Runtime.resolveBootstrap(State.family) then
-    Runtime.publish({ ok = false, event = "created", error = "character_bootstrap_failed",
-                      citizenId = State.citizenId })
-    return
-  end
   Runtime.publish({ ok = true, event = "created", citizenId = State.citizenId })
   Runtime.notify("success", "appearance.created")
   Runtime.announce()
+end
+
+--- The player confirmed the creation editor: check the body, capture, and send it to the core.
+local function confirmCreation()
+  State.creatorUp = false
+
+  -- The body family is the character's, and this resource never changes it: an editor that
+  -- came back on the other body is refused and reopened.
+  local family = Runtime.bodyFamily()
+  if Snapshot.isFamily(State.family) and family ~= nil and family ~= State.family then
+    Runtime.finishMutation()
+    State.familyAttempts = State.familyAttempts + 1
+    if State.familyAttempts > Config.FAMILY_RETRIES then
+      return enterPristine("body_family_mismatch")
+    end
+    Runtime.notify("warning", "appearance.wrongBody",
+      { family = Runtime.familyText(State.family) })
+    return openCreator()
+  end
+
+  local payload, why = Snapshot.capture()
+  if payload == nil then
+    Runtime.finishMutation()
+    return enterPristine(tostring(why or "character_capture_failed"))
+  end
+
+  -- `creating` stays true until the core answers: the announcement waits on it.
+  send(payload, "create", function(reason)
+    Runtime.finishMutation()
+    enterPristine(reason)
+  end)
 end
 
 -- ---------------------------------------------------------------------------
@@ -212,9 +279,9 @@ end
 --- The player confirmed a modal. Which one it was is decided by what is open, not by the
 --- event: the native raises the same name for both.
 AddEventHandler("open77:appearance:confirmed", function()
+  if State.creatorUp then return confirmCreation() end
   if not State.editing then
-    -- Not ours: either the creator confirmed -- the worker below reads that from
-    -- `takeCharacterCreatorResult` -- or a queued restore mirror finalised.
+    -- Not an editor of ours: a queued restore mirror finalised.
     if State.bootstrapToken == State.restoreToken and State.bootstrapQueued then
       State.appearanceConfirmed = true
       Runtime.announce()
@@ -249,8 +316,13 @@ AddEventHandler("open77:appearance:confirmed", function()
 end)
 
 AddEventHandler("open77:appearance:cancelled", function()
+  local creation = State.creatorUp
   State.editing = false
+  State.creatorUp = false
   Runtime.finishMutation()
+  -- The character exists; only its face does not. It plays on the default one, and does not
+  -- fail anything: the world is already loaded.
+  if creation then enterPristine("character_creation_cancelled") end
 end)
 
 -- ---------------------------------------------------------------------------
@@ -300,7 +372,14 @@ end)
 -- The worker
 -- ---------------------------------------------------------------------------
 
---- Pick up whatever asked for a body-family transition on the other side of the world reload.
+--- Whether a creation is waiting for its editor to be opened, and nothing is opening it.
+---@return boolean
+local function creationStalled()
+  return State.creating and not State.creatorUp and not creatorOpening and State.commit == nil
+end
+
+--- Pick up what a body-family reload answered on the other side of it. Only a creation asks
+--- for an edit transition here; a restore's reload comes back through the world entry.
 ---@return boolean handled
 local function resumeFamilyTransition()
   local result = Open77.appearance.takeBodyFamilyTransition()
@@ -308,73 +387,34 @@ local function resumeFamilyTransition()
   local action, family = result:match("^([^:]+):(.+)$")
   if action == "error" then
     Runtime.notify("error", "appearance.bodyChangeFailed", { reason = tostring(family) })
+    -- no reload is coming: this world is judged again and the face decided on the body it has
+    Runtime.markWorldEligibility("body_family_transition_error")
+    if creationStalled() then return enterPristine("body_family_mismatch") end
+    State.settled = false
+    Runtime.resolveCharacter("body_family_transition_error")
+    return true
+  end
+  if action ~= "edit" then
+    Open77.log.debug("body family transition: " .. result)
     return true
   end
   if not Snapshot.isFamily(family) then
     Runtime.notify("error", "appearance.bodyChangeInvalid")
     return true
   end
-  State.settled = false
-  Runtime.resolveCharacter("body_family_transition")
+  -- the editor the creation asked for before the reload
+  if creationStalled() then openCreator() end
   return true
 end
 
---- What the creator answered, once the modal has closed.
----@param result string
-local function takeCreatorResult(result)
-  if result == "cancelled" then
-    State.creating = false
-    Open77.session.failCharacterBootstrap("character_creation_cancelled")
-    return
-  end
-
-  local action, family = result:match("^([^:]+):(.+)$")
-  if action ~= "confirmed" or not Snapshot.isFamily(family) then
-    State.creating = false
-    Runtime.finishMutation()
-    Open77.session.failCharacterBootstrap("invalid_creator_result")
-    return
-  end
-
-  -- The body family is the character's, and this resource never changes it: a run that came
-  -- back on the other body is refused and reopened.
-  if family ~= State.family then
-    State.creating = false
-    Runtime.finishMutation()
-    State.familyAttempts = State.familyAttempts + 1
-    if State.familyAttempts > Config.FAMILY_RETRIES then
-      return enterPristine("body_family_mismatch")
-    end
-    Runtime.notify("warning", "appearance.wrongBody",
-      { family = Runtime.familyText(State.family) })
-    openCreator()
-    return
-  end
-
-  local payload, why = Snapshot.capture()
-  if payload == nil then
-    State.creating = false
-    Runtime.finishMutation()
-    Open77.session.failCharacterBootstrap(tostring(why or "character_capture_failed"))
-    return
-  end
-
-  -- `creating` stays true until the core answers: the announcement waits on it.
-  send(payload, "create", function(reason)
-    Runtime.finishMutation()
-    enterPristine(reason)
-  end)
-end
-
---- One pass of the worker: the modals, and the capture deadline.
+--- One pass of the worker: the unanswered creation, the body transition, the capture deadline.
 local function watch()
   Runtime.warnUnanswered()
   resumeFamilyTransition()
 
-  if State.creating then
-    local result = Open77.session.takeCharacterCreatorResult()
-    if type(result) == "string" and result ~= "" then takeCreatorResult(result) end
-  end
+  -- A creation whose reload entered the world without the transition answering: the editor
+  -- is reopened all the same, or the readiness gate would wait on it for ever.
+  if creationStalled() and Runtime.faceable() then openCreator() end
 
   -- A capture that went out and was never answered. The modal is already closed, so nothing
   -- is taken away from anybody.
@@ -396,8 +436,8 @@ end
 CreateThread(function()
   while true do
     Wait(WATCH_MS)
-    -- a raise from a host call would end this loop for the session: no creator result is ever
-    -- read again, and no capture is ever timed out
+    -- a raise from a host call would end this loop for the session: no body transition is
+    -- ever resumed again, and no capture is ever timed out
     local ok, failure = pcall(watch)
     if not ok then Open77.log.error("appearance worker: " .. tostring(failure)) end
   end

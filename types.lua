@@ -19,9 +19,10 @@
 ---| "invalid_mode"         not "ripperdoc" or "hairdresser"                        (client)
 ---| "capture_failed"       the engine would not answer what the puppet wears       (client)
 ---| "already_has_a_face"   `openCreator` on a character that has a stored one      (client)
----| "bootstrap_already_spent" `openCreator` after the world has already loaded     (client)
----| "creation_refused"     this character's creator run ended for good             (client)
----| "character_creator_unavailable" the engine would not open the creator          (client)
+---| "creation_refused"     this character's creation ended for good                (client)
+---| "character_creator_unavailable" the engine would not open the creation editor (client)
+---| "character_creation_cancelled" the player closed the creation editor           (client)
+---| "character_capture_failed" the creation editor's face could not be read       (client)
 ---| "not_sent"             the net event was not accepted                          (client)
 ---| "menu_not_running"     the panel is opx77_menu's, and it is not running        (client)
 ---| "panel_busy"           another resource owns the open panel                    (client)
@@ -32,8 +33,7 @@
 ---| "invalid_option"       an entry of the option list is not a table              (client)
 ---| "invalid_option_name"  an option name is not a string                          (client)
 ---| "stored_build_mismatch" the stored face is from another game build             (client)
----| "body_family_mismatch" the creator came back on the other body                 (client)
----| "character_bootstrap_failed" the host would not load a world for this body     (client)
+---| "body_family_mismatch" the creation editor could not be kept on the right body  (client)
 ---| "appearance.invalid"   opx77_core could not read the snapshot                    (core)
 ---| "appearance.tooLarge"  the JSON document is over the core's limit                (core)
 ---| "error.badRequest"     the payload was not a table                               (core)
@@ -74,11 +74,12 @@
 ---@field citizenId CitizenId|nil
 
 --- What `isSettled` answers. `waiting` names what the session is short of; `"creation"` means
---- the character has no face and nothing has called `openCreator`.
+--- the character has no face and nothing has called `openCreator` yet, `"body"` that the world
+--- is reloading onto the character's body family.
 ---@class AppearanceSettled : AppearanceResponse
 ---@field settled boolean    the appearance work for this world entry has finished
 ---@field announced boolean  `open77:session:gameplayReady` has gone out
----@field waiting "server"|"restore"|"creation"|"creator"|nil
+---@field waiting "server"|"body"|"restore"|"creation"|"creator"|nil
 ---@field citizenId CitizenId|nil
 
 --- What a write or a modal call answers: that it was asked for, never that it has happened.
@@ -89,7 +90,7 @@
 ---@class AppearanceOpenState : AppearanceResponse
 ---@field open boolean      a native modal is on screen
 ---@field editing boolean   and it is this resource's editor
----@field creating boolean  and it is this resource's character creator
+---@field creating boolean  and it is this resource's editor for a character with no face
 
 --- What `getSkin` answers.
 ---@class AppearanceSkin : AppearanceResponse
@@ -118,9 +119,9 @@
 ---| "gameplayReady"    the readiness announcement went out; the player may be placed
 ---| "restored"         a stored face was put on the puppet, or could not be
 ---| "settled"          this world entry's face was decided, and there is none to wear
----| "needsCreation"    this character has no face; call `openCreator` to open one
+---| "needsCreation"    this character has no face; call `openCreator` to open the editor
 ---| "applied"          `setSkin` reached the puppet, or could not
----| "created"          a character was built and stored, or was not
+---| "created"          a new character's face was built and stored, or was not
 ---| "saved"            an edit was committed, or was refused
 ---| "characterChanged" the live character switched underneath this resource
 ---| "panelOpened"      this resource's own panel came up
@@ -132,7 +133,7 @@
 ---@field event AppearanceEventName
 ---@field error AppearanceError|nil
 ---@field citizenId CitizenId|nil
----@field family BodyFamily|nil    on `needsCreation`: the body the creator must build
+---@field family BodyFamily|nil    on `needsCreation`: the body the editor opens on
 ---@field unchanged boolean|nil    on `saved`: the face matched the stored one, nothing written
 ---@field reason AppearancePanelReason|nil  on `panelClosed`: what took the panel down
 

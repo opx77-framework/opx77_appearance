@@ -43,19 +43,21 @@ State.playerResetDone = false
 --- adopted face and by every world entry, so it is never a per-session budget.
 State.restoreAttempts = 0
 
---- Whether this world is the gameplay one rather than the menu the creator runs inside.
+--- Whether this world is the gameplay one rather than the pre-game menu the join starts in.
 State.worldEligible = false
 
 --- Sent exactly once per world entry, once the player is genuinely playable.
 State.gameplayAnnounced = false
 
---- Whether this world entry's face has been decided at all: restored, sent to the creator, or
+--- Whether this world entry's face has been decided at all: restored, handed to a creation, or
 --- honestly given up on.
 State.settled = false
 
---- Which of this resource's two modals is on screen.
+--- Which of this resource's two modals is on screen. `creating` covers the whole creation,
+--- from `openCreator` to the core's answer; `creatorUp` only the editor being on screen.
 State.editing = false
 State.creating = false
+State.creatorUp = false
 
 --- A captured face sent to opx77_core and not yet answered.
 ---@type { kind: "edit"|"create", deadlineMs: integer }|nil
@@ -68,21 +70,35 @@ State.lastSaveAtMs = 0
 --- once per character, not once per world entry.
 State.buildWarned = false
 
---- Creator runs spent on this character coming back on the wrong body family.
+--- Body-family attempts spent on this character: world reloads onto its body, and creation
+--- editors that came back on the other one. Bounded by `FAMILY_RETRIES`.
 State.familyAttempts = 0
 
---- This character's creator ran, was refused for good, and must not be reopened until the
---- character changes or this resource restarts.
+--- The body family the world was last loaded with by this client, for when the engine will
+--- not say. nil until the bootstrap or a switch.
+---@type string|nil
+State.bodyFamily = nil
+
+--- A body switch went out and its reload has not entered the world yet. The puppet still
+--- standing there is the old body, so nothing is applied to it and nothing is announced.
+State.bodyReloading = false
+
+--- This character's creation ended without a face, and `openCreator` must not reopen it until
+--- the character changes or this resource restarts. `openEditor` still can.
 State.creationRefused = false
 
---- A `needsCreation` that nothing has answered yet: when it went out, and whether the
---- unanswered warning has already been said. 0 means nothing is waiting on a creator.
+--- A `needsCreation` that nothing has answered yet: when it went out, and whether the wait for
+--- an answer has already run out. 0 means nothing is waiting on `openCreator`; the
+--- announcement holds while something is.
 State.creationAskedAtMs = 0
 State.creationWarned = false
 
 --- The record of having spent the one-shot character bootstrap. Not a cache of the phase: the
 --- phase is the host's and is read from the host.
 State.bootstrapResolved = false
+
+--- The join-time wait for the roster that picks the bootstrap body is running.
+State.bootstrapPicking = false
 
 --- Adopt the stored face for the live character.
 ---@param snapshot table|nil
@@ -132,7 +148,10 @@ end
 --- restored, or honestly failed. The gameplay announcement waits on this and nothing else.
 ---@return boolean
 function State.appearanceSettled()
-  if not State.settled or State.creating then return false end
+  if State.citizenId == nil then return false end
+  if not State.settled or State.creating or State.bodyReloading then return false end
+  -- a `needsCreation` still unanswered: the editor may yet come up
+  if State.creationAskedAtMs ~= 0 then return false end
   if State.commit ~= nil and State.commit.kind == "create" then return false end
   if State.restoreToken ~= State.restoreSettledToken then return false end
   -- A queued apply additionally waits on the mirror confirmation and the player reset; a
@@ -161,6 +180,7 @@ function State.unload()
   State.canonical = nil
   State.editing = false
   State.creating = false
+  State.creatorUp = false
   State.commit = nil
   State.creationRefused = false
   State.creationAskedAtMs = 0

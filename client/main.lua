@@ -17,6 +17,14 @@ local NOTIFY = "opx77_notify"
 --- nothing raises an event for.
 local WATCH_MS = 200
 
+--- How often the join-time bootstrap looks at opx77_core's roster, in ms. A read of what the
+--- core already holds, never a request: the core cools those at 2000 ms and drops the excess.
+local ROSTER_POLL_MS = 250
+
+--- The shipped `BOOTSTRAP` values, for a config that lost them.
+local ROSTER_WAIT_MS = 3000
+local DEFAULT_FAMILY = "female"
+
 --- The scheduler clock in milliseconds; `monotonic` answers SECONDS. A non-finite reading is
 --- dropped rather than propagated: a NaN would expire nothing, an infinity everything.
 ---@return integer
@@ -87,12 +95,20 @@ end
 -- ---------------------------------------------------------------------------
 
 --- Whether the player is playing, rather than merely having a puppet. `attached` alone is also
---- true for the creator's preview and for the puppet behind the "continue" screen.
+--- true for the pre-game menu's puppet and for the one behind the "continue" screen.
 ---@return boolean
 local function inGameplay()
   local ok, character = pcall(Open77.character.state)
   return ok and type(character) == "table" and character.attached == true and
     character.alive == true and (tonumber(character.health) or 0) > 0
+end
+Runtime.inGameplay = inGameplay
+
+--- Whether a face may go on the puppet now: the gameplay world, not a body that is about to be
+--- replaced by a reload, and a player past the "continue" screen.
+---@return boolean
+function Runtime.faceable()
+  return State.worldEligible and not State.bodyReloading and inGameplay()
 end
 
 --- The host's character bootstrap phase, or "unreadable".
@@ -103,15 +119,18 @@ local function bootstrapPhase()
 end
 Runtime.bootstrapPhase = bootstrapPhase
 
---- Decide whether this world is the gameplay one or the vanilla menu, from the bootstrap
+--- Decide whether this world is the gameplay one or the pre-game menu, from the bootstrap
 --- phase. Called from the world-entry events only, because polling would read `ready` too early.
 ---@param reason string
 local function markWorldEligibility(reason)
   local phase = bootstrapPhase()
   State.worldEligible = phase == "ready"
+  -- a world entry is the body reload arriving, whichever one asked for it
+  State.bodyReloading = false
   Open77.log.debug(("world entry (%s): bootstrap phase=%s -> %s"):format(reason, phase,
     State.worldEligible and "gameplay world" or "menu, not announcing"))
 end
+Runtime.markWorldEligibility = markWorldEligibility
 
 --- Release the native mutation transaction. Opening the restoration mirror while a commit is
 --- still pending always answers `appearance_editor_busy`.
@@ -121,11 +140,81 @@ function Runtime.finishMutation()
 end
 
 -- ---------------------------------------------------------------------------
+-- The body family
+-- ---------------------------------------------------------------------------
+
+--- The body family the puppet is on: the engine's word, else the one this client last loaded.
+---@return string|nil
+function Runtime.bodyFamily()
+  local read, body = pcall(Open77.appearance.captureBody)
+  if read and type(body) == "table" and Snapshot.isFamily(body.family) then
+    return body.family
+  end
+  return State.bodyFamily
+end
+
+--- Ask the engine to reload the player on `family`. Only a reload shows the other body, and the
+--- world entry that follows it comes back through `resolveCharacter` on the new puppet.
+---@param family string
+---@param edit boolean  the reload is for an editor, reopened from `takeBodyFamilyTransition`
+---@return "switching"|"active"|nil outcome, string|nil reason
+function Runtime.switchBody(family, edit)
+  local called, switched, reason = pcall(Open77.appearance.switchBodyFamily, family, edit)
+  if not called then return nil, tostring(switched) end
+  if switched then
+    State.bodyFamily = family
+    State.bodyReloading = true
+    -- the reload brings a pristine puppet: nothing this client put on the old one survives
+    State.undress()
+    return "switching"
+  end
+  if tostring(reason) == "body_family_already_active" then
+    State.bodyFamily = family
+    return "active"
+  end
+  return nil, tostring(reason or "body_family_switch_failed")
+end
+
+--- One reload onto the live character's own body family, counted against `FAMILY_RETRIES`.
+---@return boolean reloading  true when the reload went out and the caller has to stop
+local function reloadOntoFamily()
+  if not Snapshot.isFamily(State.family) then return false end
+  if State.familyAttempts >= Config.FAMILY_RETRIES then
+    -- only said when the engine or this client knows the body is the other one
+    if Runtime.bodyFamily() ~= nil then
+      Runtime.notify("error", "appearance.bodyLoadFailed", { reason = "body_family_retries" })
+    end
+    return false
+  end
+  local outcome, reason = Runtime.switchBody(State.family, false)
+  if outcome == "switching" then
+    State.familyAttempts = State.familyAttempts + 1
+    Runtime.notify("info", "appearance.bodySwitching")
+    return true
+  end
+  if outcome == nil then
+    Runtime.notify("error", "appearance.bodyLoadFailed", { reason = tostring(reason) })
+  end
+  return false
+end
+
+--- Put the puppet on `charInfo.gender` before a face goes on it. The bootstrap loaded the body
+--- of the last character played, and the one selected need not be that one.
+---@return boolean proceed  false when a reload went out
+local function ensureFamily()
+  if not Snapshot.isFamily(State.family) or Runtime.bodyFamily() == State.family then
+    return true
+  end
+  return not reloadOntoFamily()
+end
+
+-- ---------------------------------------------------------------------------
 -- The announcement
 -- ---------------------------------------------------------------------------
 
 --- Announce that this player is really in the world, at most once per world entry. It is the
---- only signal that clears the platform's `__platform` readiness hold.
+--- only signal that clears the platform's `__platform` readiness hold, and it is only ever sent
+--- for a loaded character: `appearanceSettled` is false while none is.
 ---@return boolean
 function Runtime.announce()
   if State.gameplayAnnounced or not State.worldEligible then return false end
@@ -171,8 +260,29 @@ local function applySnapshot(snapshot, attempts, token)
 end
 Runtime.applySnapshot = applySnapshot
 
+--- Wait for a puppet a face may go on. Coroutine only. No time limit -- this waits for a human
+--- to press a key -- but it says one line after a minute.
+---@param token integer
+---@param label string
+---@return boolean current  false when the generation was superseded meanwhile
+local function awaitWorld(token, label)
+  -- BOTH conditions: the menu puppet also answers attached, alive and health 100.
+  local waitedFrom, said = nowMs(), false
+  while not Runtime.faceable() do
+    if not State.current(token) then return false end
+    if not said and nowMs() - waitedFrom > 60000 then
+      said = true
+      Open77.log.warn(("%s token=%d is still waiting: eligible=%s reloading=%s gameplay=%s")
+        :format(label, token, tostring(State.worldEligible), tostring(State.bodyReloading),
+          tostring(inGameplay())))
+    end
+    Wait(WATCH_MS)
+  end
+  return State.current(token)
+end
+
 --- One restore of the stored face, end to end: take the token, honour the redundant-restore
---- guard, wait for the gameplay world, apply, settle the bootstrap flags.
+--- guard, wait for the gameplay world, put the character's body on, apply, settle the flags.
 ---@param snapshot table
 ---@param citizen string|nil
 ---@param origin string
@@ -181,7 +291,8 @@ function Runtime.beginRestore(snapshot, citizen, origin)
   local token = State.nextRestore()
 
   -- Applying a face the puppet already wears arms a native watchdog with nothing to wait for
-  -- and ends in a user-facing error on a correct face.
+  -- and ends in a user-facing error on a correct face. A body reload undresses the puppet, so
+  -- a face worn here is worn on the right body.
   if State.wearing() then
     State.restoreSettledToken = token
     Open77.log.debug(("restore skipped for %s: already worn"):format(tostring(State.citizenId)))
@@ -191,18 +302,9 @@ function Runtime.beginRestore(snapshot, citizen, origin)
   Open77.log.debug(("restore token=%d origin=%s"):format(token, origin))
 
   CreateThread(function()
-    -- BOTH conditions: the menu puppet also answers attached, alive and health 100. No time
-    -- limit -- this waits for a human to press a key -- but it says one line after a minute.
-    local waitedFrom, said = nowMs(), false
-    while not (State.worldEligible and inGameplay()) do
-      if not State.current(token) then return end
-      if not said and nowMs() - waitedFrom > 60000 then
-        said = true
-        Open77.log.warn(("restore token=%d is still waiting: eligible=%s gameplay=%s"):format(
-          token, tostring(State.worldEligible), tostring(inGameplay())))
-      end
-      Wait(WATCH_MS)
-    end
+    if not awaitWorld(token, "restore") then return end
+    -- a reload went out: the world entry it causes starts the next restore
+    if not ensureFamily() then return end
 
     -- Twenty attempts rather than the eight a mid-session apply gets: this also has to cover
     -- the short world/menu readiness window.
@@ -222,24 +324,30 @@ function Runtime.beginRestore(snapshot, citizen, origin)
     end
 
     Runtime.finishMutation()
-    if tostring(reason) == "body_gender_switch_requires_reload" then
-      -- Loading the matching pristine puppet is a world transition, so the restore comes back
-      -- around on the next world entry.
-      local switched, switchReason = Open77.appearance.switchBodyFamily(State.canonical.gender,
-        false)
-      if switched then
-        return Runtime.notify("info", "appearance.bodySwitching")
-      end
-      if tostring(switchReason) ~= "body_family_already_active" then
-        Runtime.notify("error", "appearance.bodyLoadFailed",
-          { reason = tostring(switchReason) })
-      end
+    -- The engine could not tell the body apart before the apply. `bodyReloading` holds the
+    -- announcement until the reload has entered the world and come back around.
+    if tostring(reason) == "body_gender_switch_requires_reload" and reloadOntoFamily() then
       return
     end
 
     Runtime.publish({ ok = false, event = "restored", error = tostring(reason),
                       citizenId = State.citizenId })
     Runtime.notify("error", "appearance.restoreFailed", { reason = tostring(reason) })
+    Runtime.announce()
+  end)
+end
+
+--- Settle a world entry with no face to put on: the character's own body, on the default face.
+--- It takes a restore generation, so the announcement waits on the body as it would on a face.
+---@param origin string
+function Runtime.beginPristine(origin)
+  local token = State.nextRestore()
+  Open77.log.debug(("pristine token=%d origin=%s"):format(token, origin))
+  CreateThread(function()
+    if not awaitWorld(token, "pristine") then return end
+    if not ensureFamily() then return end
+    State.restoreSettledToken = token
+    Runtime.announce()
   end)
 end
 
@@ -247,8 +355,8 @@ end
 -- The bootstrap, and what this character's face turns out to be
 -- ---------------------------------------------------------------------------
 
---- Spend the one-shot character bootstrap on the character's own body family. A second call
---- for the same entry is normal and does nothing.
+--- Spend the one-shot character bootstrap on a body family. A second call for the same entry
+--- is normal and does nothing.
 ---@param family any
 ---@return boolean
 function Runtime.resolveBootstrap(family)
@@ -268,64 +376,170 @@ function Runtime.resolveBootstrap(family)
     return false
   end
   State.bootstrapResolved = true
+  State.bodyFamily = family
   Open77.log.info(("character bootstrap resolved as %s"):format(family))
   return true
 end
 
---- Decide what happens to the live character's face: restore the stored one, or publish
---- `needsCreation` and wait. This resource never opens a creator on its own.
+--- The roster opx77_core last broadcast, as `charactersReady` carried it. nil until one does.
+---@type table|nil
+local rosterSeen = nil
+
+AddEventHandler("opx77:client:charactersReady", function(roster)
+  if type(roster) == "table" and type(roster.list) == "table" then rosterSeen = roster.list end
+end)
+
+--- The roster opx77_core already holds, or nil while it holds none. Coroutine only. The
+--- dispatch is guarded and the await is not: a yield is not safe under a pcall.
+---@return table|nil
+local function heldRoster()
+  if rosterSeen ~= nil then return rosterSeen end
+  if GetResourceState(CORE) ~= "running" then return nil end
+  local dispatched, promise = pcall(Open77.exports.call, CORE, "GetCharacters")
+  if not dispatched or not promise then return nil end
+  local result, callError = promise:await()
+  if callError or type(result) ~= "table" or type(result.characters) ~= "table" then
+    return nil
+  end
+  -- the core's empty mirror answers no character and no slot; an account that has none still
+  -- has a slot to put one in
+  if #result.characters == 0 and (tonumber(result.slots) or 0) <= 0 then return nil end
+  return result.characters
+end
+
+--- The body family of the most recently played character in a roster, or nil when none has
+--- been played.
+---@param characters table  CharacterSummary[]
+---@return string|nil
+local function lastPlayedFamily(characters)
+  local family, latest
+  for index = 1, #characters do
+    local summary = characters[index]
+    local at = type(summary) == "table" and summary.lastLoggedOut or nil
+    if at ~= nil and Snapshot.isFamily(summary.gender) then
+      -- the core sends the roster most recently played first; this only guards that order,
+      -- and only between two stamps of one comparable type
+      local comparable = type(at) == type(latest) and
+        (type(at) == "string" or type(at) == "number")
+      if latest == nil or (comparable and at > latest) then
+        family, latest = summary.gender, at
+      end
+    end
+  end
+  return family
+end
+
+--- `BOOTSTRAP.DEFAULT_FAMILY`, or "female" with one line saying why.
+---@return string
+local function defaultFamily()
+  local bootstrap = type(Config.BOOTSTRAP) == "table" and Config.BOOTSTRAP or {}
+  if Snapshot.isFamily(bootstrap.DEFAULT_FAMILY) then return bootstrap.DEFAULT_FAMILY end
+  Open77.log.warn(("BOOTSTRAP.DEFAULT_FAMILY %s is not \"female\" or \"male\"; loading %q")
+    :format(tostring(bootstrap.DEFAULT_FAMILY), DEFAULT_FAMILY))
+  return DEFAULT_FAMILY
+end
+
+--- `BOOTSTRAP.ROSTER_WAIT_MS`, or the shipped value for one that is not a finite, positive
+--- number of milliseconds.
+---@return number
+local function rosterWaitMs()
+  local bootstrap = type(Config.BOOTSTRAP) == "table" and Config.BOOTSTRAP or {}
+  local wait = tonumber(bootstrap.ROSTER_WAIT_MS)
+  if wait == nil or wait ~= wait or wait < 0 or wait >= math.huge then
+    Open77.log.warn(("BOOTSTRAP.ROSTER_WAIT_MS %s is not a number of ms; waiting %d")
+      :format(tostring(bootstrap.ROSTER_WAIT_MS), ROSTER_WAIT_MS))
+    return ROSTER_WAIT_MS
+  end
+  return wait
+end
+
+--- Spend the bootstrap at join, before any character is chosen: the shell keeps its cover up,
+--- and every OPX//77 surface under it, until it is. Selection happens in the world afterwards.
+--- Once per connection; a second world entry while it runs does nothing.
+---@param origin string
+function Runtime.beginBootstrap(origin)
+  if State.bootstrapResolved or State.bootstrapPicking then return end
+  if bootstrapPhase() ~= "waiting" then return end
+  State.bootstrapPicking = true
+
+  CreateThread(function()
+    local deadline = nowMs() + rosterWaitMs()
+    local roster
+    while roster == nil and nowMs() < deadline do
+      if State.bootstrapResolved or bootstrapPhase() ~= "waiting" then break end
+      roster = heldRoster()
+      if roster == nil then Wait(ROSTER_POLL_MS) end
+    end
+    State.bootstrapPicking = false
+    if State.bootstrapResolved or bootstrapPhase() ~= "waiting" then return end
+
+    local family = roster ~= nil and lastPlayedFamily(roster) or nil
+    local why = family ~= nil and "the last character played" or
+      (roster ~= nil and "no character played yet" or "no roster in time")
+    family = family or defaultFamily()
+    Open77.log.info(("bootstrap (%s): loading the %s body, %s"):format(origin, family, why))
+    Runtime.resolveBootstrap(family)
+  end)
+end
+
+--- Decide what happens to the live character's face on this world entry: restore the stored
+--- one, publish `needsCreation` and wait, or settle on the default face. This resource never
+--- opens an editor on its own.
 ---@param origin string
 function Runtime.resolveCharacter(origin)
   if State.citizenId == nil then return end
   local stored = State.canonical
 
+  -- Spent at join as a rule. A character loaded before that has the best claim on the body; one
+  -- whose family is unreadable leaves it to the join-time pick rather than failing it.
+  if Snapshot.isFamily(State.family) then Runtime.resolveBootstrap(State.family) end
+  State.settled = true
+
   if type(stored) == "table" and not Snapshot.buildAccepted(stored.gameBuild) then
-    Runtime.resolveBootstrap(State.family)
-    State.settled = true
     Runtime.publish({ ok = false, event = "settled", error = "stored_build_mismatch",
                       citizenId = State.citizenId })
     if not State.buildWarned then
       State.buildWarned = true
       Runtime.notify("warning", "appearance.buildMismatch")
     end
-    Runtime.announce()
+    Runtime.beginPristine(origin)
     return
   end
 
   if type(stored) == "table" then
-    Runtime.resolveBootstrap(State.family)
-    State.settled = true
     State.restoreAttempts = 0
     Runtime.beginRestore(stored, nil, origin)
-    Runtime.announce()
     return
   end
 
-  -- No stored face. The vanilla creator runs inside the character bootstrap, so it is only
-  -- worth asking for while that is unspent: a reload in the gameplay world cannot raise one.
-  if not State.creating and not State.creationRefused and bootstrapPhase() ~= "ready" then
-    State.settled = true
-    State.creationAskedAtMs = Runtime.nowMs()
+  -- A creation already running owns this world entry: it is the reload its editor asked for,
+  -- and `takeBodyFamilyTransition` reopens the editor.
+  if State.creating then return end
+  -- already asked and not yet answered: once is enough
+  if State.creationAskedAtMs ~= 0 then return end
+
+  if not State.creationRefused and not State.creationWarned then
+    State.creationAskedAtMs = nowMs()
     Runtime.publish({ ok = true, event = "needsCreation", citizenId = State.citizenId,
                       family = State.family })
     return
   end
 
-  Runtime.resolveBootstrap(State.family)
-  State.settled = true
-  Runtime.announce()
+  Runtime.beginPristine(origin)
 end
 
---- Says so, once, when nobody answered `needsCreation`. The player is sitting in the vanilla
---- menu with no world behind it and nothing on screen, which is otherwise undiagnosable.
+--- Says so, once, when nobody answered `needsCreation`, and lets the player in on the default
+--- face rather than holding the readiness gate for a creator that is not coming.
 function Runtime.warnUnanswered()
   if State.creationAskedAtMs == 0 or State.creating or State.creationWarned then return end
   if Runtime.nowMs() - State.creationAskedAtMs < Config.CREATION_WAIT_MS then return end
   State.creationWarned = true
+  State.creationAskedAtMs = 0
   Open77.log.warn(("%s has no stored face and nothing called the `openCreator` export")
     :format(tostring(State.citizenId)))
-  Open77.log.warn("  the player is in the vanilla menu with no world behind it; a character")
-  Open77.log.warn("  creator resource is what opens one. See README, \"Who opens the creator\".")
+  Open77.log.warn("  the player enters on the default face; a character creator resource is")
+  Open77.log.warn("  what opens the editor. See README, \"Who opens the creator\".")
+  Runtime.beginPristine("creation_unanswered")
 end
 
 -- ---------------------------------------------------------------------------
@@ -361,6 +575,13 @@ AddEventHandler("open77:appearance:restore_failed", function()
 end)
 
 AddEventHandler("open77:playerReset:complete", function()
+  -- A body reload that reached the world without a `worldReady` of its own: judged here, or
+  -- nothing would ever go on the new puppet.
+  if State.bodyReloading then
+    State.enterWorld()
+    markWorldEligibility("playerReset")
+    Runtime.resolveCharacter("body_reload")
+  end
   State.playerResetDone = true
   Runtime.announce()
 end)
@@ -379,8 +600,8 @@ local function adoptCharacter(playerData, origin)
   if type(citizen) ~= "string" or citizen == "" then return end
   if citizen == State.citizenId then return end
 
-  -- A different character is a different face, and the bootstrap has already been spent on the
-  -- first one, so everything about the previous character goes.
+  -- A different character is a different face, and the bootstrap has already been spent, so
+  -- everything about the previous character goes -- including a restore still on its way.
   local switching = State.citizenId ~= nil
   State.citizenId = citizen
   State.family = type(playerData.charInfo) == "table" and playerData.charInfo.gender or nil
@@ -392,6 +613,7 @@ local function adoptCharacter(playerData, origin)
   State.familyAttempts = 0
   State.buildWarned = false
   State.undress()
+  State.restoreSettledToken = State.nextRestore()
   if switching then
     Open77.log.info(("live character is now %s"):format(citizen))
     Runtime.publish({ ok = true, event = "characterChanged", citizenId = citizen })
@@ -430,6 +652,8 @@ end
 AddEventHandler("open77:worldReady", function()
   State.enterWorld()
   markWorldEligibility("worldReady")
+  -- the pre-game menu world raises this too, with the bootstrap still waiting on this resource
+  Runtime.beginBootstrap("worldReady")
   Runtime.resolveCharacter("worldReady")
 end)
 
@@ -441,9 +665,10 @@ AddEventHandler("onClientResourceStart", function(name)
     return
   end
   -- No `worldReady` follows a republish into a live world, so eligibility is re-established
-  -- here. The same phase test keeps a reload landing in the MENU from announcing.
+  -- here. The same phase test keeps a start landing in the MENU from announcing.
   State.enterWorld()
   markWorldEligibility("resourceStart")
+  Runtime.beginBootstrap("resourceStart")
   catchUp()
 
   CreateThread(function()
