@@ -267,36 +267,44 @@ library:
 
 ## How other players see this one
 
-**Another client draws this player only once it holds three records of it**: the body — the
-family and its customization groups, as `Open77.appearance.captureBody` reads them — and the
-equipment and wardrobe records. The engine replicates the position, the vehicle, the actions;
-it does not replicate a look, and a proxy with none is never dressed, so the player is not
-there. A vehicle it drives is. The platform's own `open77_appearance` hands these records out,
-and this resource replaces it, so it does the same, in `client/presence.lua` and
+**Another client draws this player only from what it is handed**: the body — the family and its
+customization groups, as `Open77.appearance.captureBody` reads them, put on with
+`Open77.puppets.setBody` — every equipment slot, put on with `setSlot`, and the wardrobe, with
+`setWardrobe`. The engine replicates the position, the vehicle, the actions; it does not
+replicate a look, and a proxy that has none is never dressed, so the player is not there. A
+vehicle it drives is. On the platform, `open77_appearance` hands the records out and its
+`open77_equipment` and `open77_wardrobe` relays put them on; both relays depend on it, so none of
+them runs beside this resource, which does all of it, in `client/presence.lua` and
 `server/presence.lua`:
 
 - **Publishing.** Once the player is announced into the gameplay world on its own settled face,
   with no editor up and no body reload running, the client reads its body, its equipment
   registry and its active outfit every second, and sends them when they changed, or when the
-  server did not acknowledge the last ones within three seconds. After every world entry, and
-  after a restart of either half, it sends them again.
-- **Handing out.** The server checks the shape of each record — the platform's own bounds for a
-  body, record names for the nine slots, an outfit index from 0 to 6 — takes the player id from
-  the connection, and sends the three to every other client: `open77:equipment:record`,
-  `open77:wardrobe:record`, and a body each client puts on its proxy with
-  `Open77.puppets.setBody`. A client publishing for the first time, or after a world entry,
-  also gets everybody else's.
+  server did not answer the last ones within three seconds. An item the body family cannot wear
+  is sent as an empty slot, as the platform's record drops it. Every world entry, and a restart
+  of either half, publishes again.
+- **Asking.** After every world entry the client asks for everybody else's look, whatever state
+  its own is in — a player whose own body cannot be read still sees the others — and asks again
+  until the server answers.
+- **Handing out.** The server takes the player id from the connection and checks the shape: the
+  platform's own bounds for a body, refused whole when it is wrong (and answered, so the client
+  does not keep sending it); a record name or `false` for each of the nine slots and the seven an
+  outfit overrides, where anything else becomes an empty slot rather than costing the player
+  their body. It sends the look to every other client, never to its owner, whose look is the
+  engine's.
 - **Buckets.** The native roster retires the replicas of a player who changes routing bucket,
   and `opx77_core` moves every player out of a selection bucket when a character is placed. On
   `onPlayerBucketChange` the server hands the player and everybody already in that bucket each
-  other's records again, as the platform does.
+  other's looks again, as the platform does, and ignores a move another one has superseded.
 - **A body reload** withdraws the body first: observers drop their proxy, and get the new body
   with the publication that follows the reload. A character unloading withdraws it too.
 - **Nothing is stored.** A look lives in the server's memory until the player leaves.
 
 What is checked is the shape, not the truth: a client can only ever describe its own player,
-which is the trust the platform's package extends as well. `PRESENT_BODIES = false` turns both
-halves off, for a server where another resource distributes looks.
+which is the trust the platform's package extends as well. Both halves stand down, with one log
+line, while `open77_appearance` itself is running — two appearance resources fight over the
+bootstrap and the face, so run one — and `PRESENT_BODIES = false` turns them off for a server
+where another resource hands looks out.
 
 ## How a face is stored
 

@@ -19,8 +19,9 @@ client_script "client/panel.lua" -- after editor.lua: a panel row opens the nati
 client_script "client/presence.lua" -- after main.lua: it reads the state the runtime settles
 client_script "client/exports.lua" -- last: publishing the surface claims everything it reads
 
--- Hands every player's look to everybody else, as the platform's open77_appearance does: an
--- observer draws another player only from those records. Stores nothing.
+-- Hands every player's look to everybody else, as the platform's open77_appearance and its
+-- equipment and wardrobe relays do: an observer draws another player only from it. Stores
+-- nothing.
 server_script "server/presence.lua"
 
 permissions {
@@ -37,7 +38,8 @@ permissions {
   -- dress this player's proxy from.
   "player.equipment.read",
 
-  -- Client: Open77.puppets.setBody, putting another player's body on this client's proxy of it.
+  -- Client: Open77.puppets.setBody, setSlot and setWardrobe, putting another player's look on
+  -- this client's proxy of it.
   "puppets.present",
 
   -- The local player's life state, read only: no face and no editor goes on a player behind

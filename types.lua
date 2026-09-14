@@ -154,7 +154,7 @@
 ---@class AppearanceLook
 ---@field body AppearanceBody
 ---@field equipment table<string, string|false>  the nine equipment slots: a record name, or false
----@field wardrobe { active: integer|nil, outfits: table<string, table>, names: table }
+---@field wardrobe { active: integer|nil, outfits: table<string, table>, names: table|nil }
 
 ---@class AppearanceBody
 ---@field family BodyFamily

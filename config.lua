@@ -4,9 +4,9 @@ OPX_APPEARANCE_CONFIG = {
   -- Language for player-facing text. Server logs stay in English.
   LOCALE = "en",
 
-  -- Hand every player's look -- body, equipment, outfit -- to everybody else, so other players
-  -- are drawn at all. On this platform nothing else does once the official open77_appearance
-  -- is not running. false only when another resource distributes them.
+  -- Hand every player's look -- body, equipment, outfit -- to everybody else and put theirs on
+  -- here, so other players are drawn at all. Stands down by itself while the platform's
+  -- open77_appearance runs; false only when another resource hands looks out.
   PRESENT_BODIES = true,
 
   -- Client event raised after every decision this resource reaches.
