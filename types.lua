@@ -149,3 +149,13 @@
 ---| "owner_stopped"     the resource that opened it is no longer running
 ---| "owner_reloaded"    the resource that opened it reloaded
 ---| "menu_closed"       opx77_menu took the list down for a reason of its own
+
+--- One player's look as the presence halves hand it to the other players. Never stored.
+---@class AppearanceLook
+---@field body AppearanceBody
+---@field equipment table<string, string|false>  the nine equipment slots: a record name, or false
+---@field wardrobe { active: integer|nil, outfits: table<string, table>, names: table }
+
+---@class AppearanceBody
+---@field family BodyFamily
+---@field groups { part: "head"|"body"|"arms", name: string, keys: string[][] }[]

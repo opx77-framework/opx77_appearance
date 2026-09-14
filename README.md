@@ -22,11 +22,13 @@ Character appearance for **Opx77**. Cyberpunk's own customization mirror, opened
 for a character that has no face yet and reopened on demand, captured, and sent to
 `opx77_core`, which validates it and stores it on the character row.
 
-**This resource is client-only.** It has no `server/`, no `sql/`, no table and no
-`database.access`. The face is `opx77_characters.appearance`, `opx77_core` owns every write to
-it, and it travels in `PlayerData` like any other field of the character.
+**It stores nothing.** It has no `sql/`, no table and no `database.access`. The face is
+`opx77_characters.appearance`, `opx77_core` owns every write to it, and it travels in
+`PlayerData` like any other field of the character. Its one server file only hands each
+player's look to the other players, in memory — see
+[How other players see this one](#how-other-players-see-this-one).
 
-This resource takes no readiness hold of its own — it has no server half to take one from.
+This resource takes no readiness hold of its own.
 What holds a player is the platform's `__platform` hold, and this resource decides when it
 falls: the announcement below is withheld for as long as the player is still building a
 character — an hour included — and goes out the moment they are done, abandon it, or the face
@@ -53,13 +55,14 @@ character is loaded: until one is, `opx77_core` holds the player unplaced, which
 - The character's own body family put back in the world once it is selected
 - The join-time readiness announcement, sent only once the player is genuinely playable
 - The in-world editor, on the right body, for a character that arrives with no face
+- Every player's look handed to the other players, so they are drawn at all, and again after
+  every routing bucket change
 - A saved face from an older game build is refused rather than misapplied
 - Player-facing text in `locales/`, `en` and `fr`
 
 ## Commands
 
-None. A chat command cannot be registered from a client resource on this platform, and this
-one has no server half to register one from. The panel is opened through the `openPanel`
+None. The panel is opened through the `openPanel`
 export and the native editor through `openEditor` — a menu, a ripperdoc prop or any other
 client resource calls them.
 
@@ -262,6 +265,39 @@ library:
   hold, and it goes out exactly when `isSettled` turns true — for a loaded character, on its own
   body, with its face settled. Without it nobody spawns.
 
+## How other players see this one
+
+**Another client draws this player only once it holds three records of it**: the body — the
+family and its customization groups, as `Open77.appearance.captureBody` reads them — and the
+equipment and wardrobe records. The engine replicates the position, the vehicle, the actions;
+it does not replicate a look, and a proxy with none is never dressed, so the player is not
+there. A vehicle it drives is. The platform's own `open77_appearance` hands these records out,
+and this resource replaces it, so it does the same, in `client/presence.lua` and
+`server/presence.lua`:
+
+- **Publishing.** Once the player is announced into the gameplay world on its own settled face,
+  with no editor up and no body reload running, the client reads its body, its equipment
+  registry and its active outfit every second, and sends them when they changed, or when the
+  server did not acknowledge the last ones within three seconds. After every world entry, and
+  after a restart of either half, it sends them again.
+- **Handing out.** The server checks the shape of each record — the platform's own bounds for a
+  body, record names for the nine slots, an outfit index from 0 to 6 — takes the player id from
+  the connection, and sends the three to every other client: `open77:equipment:record`,
+  `open77:wardrobe:record`, and a body each client puts on its proxy with
+  `Open77.puppets.setBody`. A client publishing for the first time, or after a world entry,
+  also gets everybody else's.
+- **Buckets.** The native roster retires the replicas of a player who changes routing bucket,
+  and `opx77_core` moves every player out of a selection bucket when a character is placed. On
+  `onPlayerBucketChange` the server hands the player and everybody already in that bucket each
+  other's records again, as the platform does.
+- **A body reload** withdraws the body first: observers drop their proxy, and get the new body
+  with the publication that follows the reload. A character unloading withdraws it too.
+- **Nothing is stored.** A look lives in the server's memory until the player leaves.
+
+What is checked is the shape, not the truth: a client can only ever describe its own player,
+which is the trust the platform's package extends as well. `PRESENT_BODIES = false` turns both
+halves off, for a server where another resource distributes looks.
+
 ## How a face is stored
 
 The client captures the mirror and sends one net event to the core:
@@ -363,6 +399,7 @@ deadlines above, the two retry counts, and `BOOTSTRAP`:
 |---|---|---|
 | `BOOTSTRAP.ROSTER_WAIT_MS` | how long the join waits for `opx77_core`'s roster | `3000` |
 | `BOOTSTRAP.DEFAULT_FAMILY` | the body loaded when no played character is known in time | `"female"` |
+| `PRESENT_BODIES` | hand every player's look to the others; see [How other players see this one](#how-other-players-see-this-one) | `true` |
 
 A `DEFAULT_FAMILY` that is neither `"female"` nor `"male"` is read as `"female"`, with one log
 line; a `ROSTER_WAIT_MS` that is not a number of milliseconds is read as `3000`. The panel has

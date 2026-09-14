@@ -1,8 +1,13 @@
--- Configuration for opx77_appearance, shipped to every client. It has no server half.
+-- Configuration for opx77_appearance, shipped to every client and read by its server half.
 
 OPX_APPEARANCE_CONFIG = {
   -- Language for player-facing text. Server logs stay in English.
   LOCALE = "en",
+
+  -- Hand every player's look -- body, equipment, outfit -- to everybody else, so other players
+  -- are drawn at all. On this platform nothing else does once the official open77_appearance
+  -- is not running. false only when another resource distributes them.
+  PRESENT_BODIES = true,
 
   -- Client event raised after every decision this resource reaches.
   EVENT = "opx77:appearance",

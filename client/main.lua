@@ -208,9 +208,9 @@ end
 -- ---------------------------------------------------------------------------
 
 --- The body family the puppet is on: the engine's word, else the one this client last loaded,
---- else the one the bootstrap resolved. `captureBody` answers nothing on this build, and a
---- restart of this resource forgets what it loaded: without the bootstrap's word the body would
---- read unknown and be reloaded for nothing.
+--- else the one the bootstrap resolved. `captureBody` can answer nothing -- before the gameplay
+--- puppet's reset, on some builds at all -- and a restart of this resource forgets what it
+--- loaded: without the bootstrap's word the body would read unknown and be reloaded for nothing.
 ---@return string|nil
 function Runtime.bodyFamily()
   local read, body = pcall(Open77.appearance.captureBody)
@@ -241,6 +241,8 @@ function Runtime.switchBody(family, edit)
     State.reloadSettleUntilMs = 0
     -- the reload brings a pristine puppet: nothing this client put on the old one survives
     State.undress()
+    -- and observers drop their proxy of the old body until the new one is published
+    if OpxAppearance.presence then OpxAppearance.presence.withdraw() end
     Open77.log.info(("the %s body is reloading (%s)"):format(family,
       edit and "an editor reopens after it" or "for the character"))
     return "switching"

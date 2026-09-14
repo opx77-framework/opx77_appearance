@@ -27,7 +27,9 @@
     "GetInvokingResourceGeneration",
     "source",
     "exports",
-    "print"
+    "print",
+    "json",
+    "GetPlayersInBucket"
   ],
   "diagnostics.disable": [
     "lowercase-global"
