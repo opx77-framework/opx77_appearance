@@ -720,6 +720,8 @@ local function adoptCharacter(playerData, origin)
   State.buildWarned = false
   State.undress()
   State.restoreSettledToken = State.nextRestore()
+  -- what it wears travels in the same PlayerData, and goes on after its face
+  if OpxAppearance.clothing then OpxAppearance.clothing.adopt(playerData) end
   if switching then
     Open77.log.info(("live character is now %s"):format(citizen))
     Runtime.publish({ ok = true, event = "characterChanged", citizenId = citizen })
@@ -739,6 +741,7 @@ end)
 
 AddEventHandler("opx77:client:onPlayerUnloaded", function()
   State.unload()
+  if OpxAppearance.clothing then OpxAppearance.clothing.unload() end
 end)
 
 --- Catch up with a character that was already loaded. A resource reload mid-session misses

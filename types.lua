@@ -9,7 +9,7 @@
 
 ---@alias AppearanceMode "ripperdoc"|"hairdresser"
 
---- Why something was refused. Codes from this resource are hints; the core sends six locale
+--- Why something was refused. Codes from this resource are hints; the core sends nine locale
 --- keys, all of which this resource's catalogue carries.
 ---@alias AppearanceError
 ---| "export_call_required" no invoking resource, so the call came from inside      (client)
@@ -34,12 +34,16 @@
 ---| "invalid_option_name"  an option name is not a string                          (client)
 ---| "stored_build_mismatch" the stored face is from another game build             (client)
 ---| "body_family_mismatch" the creation editor could not be kept on the right body  (client)
+---| "clothing_not_restored" the stored clothing never read back on the puppet     (client)
 ---| "appearance.invalid"   opx77_core could not read the snapshot                    (core)
 ---| "appearance.tooLarge"  the JSON document is over the core's limit                (core)
 ---| "error.badRequest"     the payload was not a table                               (core)
 ---| "error.notLoggedIn"    no character loaded on the core for this connection       (core)
 ---| "error.tooFast"        two saves inside the core's 2000 ms cooldown              (core)
 ---| "error.unavailable"    the core's storage layer refused the write                (core)
+---| "clothing.invalid"     opx77_core could not read the clothing record             (core)
+---| "clothing.tooLarge"    the clothing record is over the core's limit               (core)
+---| "clothing.stale"       a clothing save captured for the character before        (core)
 
 --- One logical customization option: a position in the catalogue, not a mesh.
 ---@class AppearanceOption
@@ -115,6 +119,16 @@
 ---@field body BodyFamily|nil   the body the puppet is on, as far as this client can tell
 ---@field bodyReloading boolean a body reload has not been through its new puppet's reset yet
 ---@field panel boolean         this resource's own panel is on screen
+---@field clothing AppearanceClothingPhase  what this client is doing with the clothes
+
+---@alias AppearanceClothingPhase
+---| "idle"      no character, or opx77_core carries no clothing for it: nothing is touched
+---| "waiting"   the stored clothing goes on once the face has settled and been announced
+---| "restoring" it was put on and has not read back yet
+---| "worn"      it is on, and what the player changes is saved
+---| "saving"    worn, with a save still unanswered
+---| "unsaved"   worn, and saves have stopped for this character
+---| "failed"    it never read back; nothing is saved until the next world entry
 
 --- Which of this resource's decisions an event reports.
 ---@alias AppearanceEventName
@@ -128,6 +142,8 @@
 ---| "characterChanged" the live character switched underneath this resource
 ---| "panelOpened"      this resource's own panel came up
 ---| "panelClosed"      it went down; `reason` says what took it down
+---| "clothingRestored" the stored clothing, or the default record, is on the puppet, or is not
+---| "clothingSaved"    a clothing change was stored, or was refused, or saves have stopped
 
 --- What arrives on `OPX_APPEARANCE_CONFIG.EVENT`, with a bare `AddEventHandler`.
 ---@class AppearanceEvent
@@ -149,6 +165,13 @@
 ---| "owner_stopped"     the resource that opened it is no longer running
 ---| "owner_reloaded"    the resource that opened it reloaded
 ---| "menu_closed"       opx77_menu took the list down for a reason of its own
+
+--- What opx77_core stores as a character's clothing, `PlayerData.clothing`: the platform's own
+--- record shape.
+---@class AppearanceClothing
+---@field schemaVersion integer  1
+---@field equipment table<string, string|false>  the nine equipment slots: a record name, or false
+---@field wardrobe { active: integer|nil, outfits: table<string, table<string, string|false>> }
 
 --- One player's look as the presence halves hand it to the other players. Never stored.
 ---@class AppearanceLook

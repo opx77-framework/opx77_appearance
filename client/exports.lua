@@ -239,6 +239,7 @@ exports("state", function()
   -- from the runtime rather than the state: after a restart only the bootstrap still knows it
   report.body = Runtime.bodyFamily()
   report.panel = Panel.isOpen()
+  report.clothing = OpxAppearance.clothing and OpxAppearance.clothing.report() or "idle"
   report.ok = true
   return report
 end)

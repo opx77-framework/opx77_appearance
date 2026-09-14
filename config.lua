@@ -18,12 +18,24 @@ OPX_APPEARANCE_CONFIG = {
   -- Which catalogue builds a stored snapshot may be read back into.
   GAME_BUILDS = { ["2.31"] = true },
 
-  -- How long opx77_core has to answer a captured face before it is given up on, in ms.
+  -- How long opx77_core has to answer a captured face, or a clothing save, before it is given up
+  -- on, in ms.
   COMMIT_MS = 20000,
 
-  -- opx77_core's own cooldown on `appearance.request`. A commit inside it is held back rather
-  -- than refused.
+  -- opx77_core's own cooldown on `appearance.request`, and on `clothing.request`. A save inside
+  -- it is held back rather than refused.
   SAVE_COOLDOWN_MS = 2000,
+
+  -- What the character wears, stored by opx77_core: put back on once the face has settled, and
+  -- saved when the player changes it. See README, "What the character wears".
+  CLOTHING = {
+    -- false leaves clothing to another resource: nothing is put on and nothing is saved
+    PERSIST = true,
+
+    -- How long a change has to hold before it is saved, in ms: a player trying three jackets
+    -- saves the one they kept.
+    SAVE_DEBOUNCE_MS = 2000,
+  },
 
   -- Re-dispatches of a bootstrap restore the native aborted before confirming it.
   RESTORE_RETRIES = 3,

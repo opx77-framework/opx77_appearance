@@ -173,6 +173,8 @@ end
 
 --- Everything a new world entry invalidates. The character itself survives it.
 function State.enterWorld()
+  -- the pristine puppet of a new world wears nothing this client put on the last one
+  if OpxAppearance.clothing then OpxAppearance.clothing.enterWorld() end
   State.settled = false
   State.gameplayAnnounced = false
   State.bootstrapToken = nil

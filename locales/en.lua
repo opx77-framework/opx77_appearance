@@ -32,6 +32,13 @@ OpxAppearance.Locale.register("en", {
     "No appearance was saved ({reason}). You keep the default face for now.",
   ["appearance.wrongBody"]         = "Your character is {family}. Build that body type.",
 
+  ["appearance.clothingRestoreFailed"] =
+    "Your saved clothes could not be put back on. Changes are not saved until you reconnect.",
+  ["appearance.clothingNotSaved"]  = "Your clothes are not being saved right now: {reason}",
+  ["clothing.invalid"]             = "Those clothes could not be read.",
+  ["clothing.tooLarge"]            = "Those clothes are too many to store.",
+  ["clothing.stale"]               = "Those clothes belong to another character.",
+
   ["appearance.invalid"]           = "That appearance could not be read.",
   ["appearance.tooLarge"]          = "That appearance is too large to store.",
   ["error.badRequest"]             = "That request was not understood.",
@@ -59,7 +66,8 @@ OpxAppearance.Locale.register("en", {
   ["appearance.panel.editNote"]    = "Opens Cyberpunk's own customization mirror.",
   ["appearance.panel.bodyNote"]    =
     "Your body type belongs to the character. Changing it means creating another one.",
-  ["appearance.panel.outfitsNote"] = "Outfits and clothing are not built yet.",
+  ["appearance.panel.outfitsNote"] =
+    "No outfit picker yet. What you wear is kept with your character.",
   ["appearance.panel.wearing"]     = "Putting your saved look back on.",
   ["appearance.panel.wornNow"]     = "Your saved look is back on.",
   ["appearance.panel.alreadyWorn"] = "You are already wearing it.",

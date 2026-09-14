@@ -1,5 +1,5 @@
 resource "opx77_appearance"
-version "0.8.0"
+version "0.9.0"
 open77_version ">=0.0.1"
 auto_start true
 
@@ -16,6 +16,7 @@ client_script "client/state.lua" -- after snapshot.lua: the redundant-restore gu
 client_script "client/main.lua"
 client_script "client/editor.lua" -- after main.lua: it calls into the runtime
 client_script "client/panel.lua" -- after editor.lua: a panel row opens the native editor
+client_script "client/clothing.lua" -- after main.lua: it dresses once the face has settled
 client_script "client/presence.lua" -- after main.lua: it reads the state the runtime settles
 client_script "client/exports.lua" -- last: publishing the surface claims everything it reads
 
@@ -34,9 +35,13 @@ permissions {
   "player.appearance.read",
   "player.appearance.edit",
 
-  -- Client: the equipment registry and the active outfit, read only, for the records observers
-  -- dress this player's proxy from.
+  -- Client: the equipment registry and the wardrobe, for the records observers dress this
+  -- player's proxy from, and for the clothing opx77_core stores.
   "player.equipment.read",
+
+  -- Client: Open77.equipment.apply and Open77.wardrobe.outfit().apply / activate, putting the
+  -- clothing opx77_core stores back on this player's own puppet. Nobody else's.
+  "player.equipment.edit",
 
   -- Client: Open77.puppets.setBody, setSlot and setWardrobe, putting another player's look on
   -- this client's proxy of it.
@@ -50,6 +55,6 @@ permissions {
   -- opx77_menu owns that surface.
 
   -- Deliberately not requested: database.access, the players.life.* writes, world.*,
-  -- combat.config, player.equipment.edit. opx77_core owns the face and every write to it; this
+  -- combat.config. opx77_core owns the face, the clothing and every write to them; this
   -- resource dresses its own puppet, and hands on what the others wear without changing it.
 }

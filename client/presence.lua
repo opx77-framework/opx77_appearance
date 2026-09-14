@@ -144,12 +144,18 @@ local function readClothing(family)
 end
 
 --- Whether this player's look should be published: announced into the gameplay world, on its
---- own settled face, with no editor and no body reload in the way.
+--- own settled face and its own clothes, with no editor and no body reload in the way.
 ---@return boolean
 local function presentable()
-  return State.citizenId ~= nil and State.gameplayAnnounced and State.worldEligible and
+  if not (State.citizenId ~= nil and State.gameplayAnnounced and State.worldEligible and
     not State.bodyReloading and not State.editing and not State.creatorUp and
-    State.appearanceSettled() and Runtime.inGameplay()
+    State.appearanceSettled() and Runtime.inGameplay()) then
+    return false
+  end
+  -- last: the clothes are waited on from the moment the look would otherwise go out, and only
+  -- for so long, so a restore that never reads back cannot keep the player undrawn
+  local clothing = OpxAppearance.clothing
+  return clothing == nil or clothing.settled()
 end
 
 --- Ask for everybody else's look, once per world entry, retried until answered. Only from the

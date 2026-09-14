@@ -34,6 +34,15 @@ OpxAppearance.Locale.register("fr", {
     "Aucune apparence enregistrée ({reason}). Vous gardez le visage par défaut pour l'instant.",
   ["appearance.wrongBody"]         = "Votre personnage est {family}. Construisez ce corps.",
 
+  ["appearance.clothingRestoreFailed"] =
+    "Vos vêtements enregistrés n'ont pas pu être remis. " ..
+    "Rien n'est enregistré avant de vous reconnecter.",
+  ["appearance.clothingNotSaved"]  =
+    "Vos vêtements ne sont pas enregistrés pour le moment : {reason}",
+  ["clothing.invalid"]             = "Ces vêtements n'ont pas pu être lus.",
+  ["clothing.tooLarge"]            = "Ces vêtements sont trop nombreux pour être enregistrés.",
+  ["clothing.stale"]               = "Ces vêtements appartiennent à un autre personnage.",
+
   ["appearance.invalid"]           = "Cette apparence n'a pas pu être lue.",
   ["appearance.tooLarge"]          =
     "Cette apparence est trop volumineuse pour être enregistrée.",
@@ -64,7 +73,8 @@ OpxAppearance.Locale.register("fr", {
     "Ouvre le miroir de personnalisation de Cyberpunk.",
   ["appearance.panel.bodyNote"]    =
     "Votre type de corps appartient au personnage. En changer revient à en créer un autre.",
-  ["appearance.panel.outfitsNote"] = "Les tenues et les vêtements ne sont pas encore faits.",
+  ["appearance.panel.outfitsNote"] =
+    "Pas encore de choix de tenue. Ce que vous portez reste avec votre personnage.",
   ["appearance.panel.wearing"]     = "Remise de votre visage enregistré.",
   ["appearance.panel.wornNow"]     = "Votre visage enregistré est de retour.",
   ["appearance.panel.alreadyWorn"] = "Vous le portez déjà.",
