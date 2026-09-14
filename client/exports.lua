@@ -236,6 +236,8 @@ exports("state", function()
   local gone = nobody()
   if gone then return gone end
   local report = State.report()
+  -- from the runtime rather than the state: after a restart only the bootstrap still knows it
+  report.body = Runtime.bodyFamily()
   report.panel = Panel.isOpen()
   report.ok = true
   return report

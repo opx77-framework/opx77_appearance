@@ -25,6 +25,13 @@ local ROSTER_POLL_MS = 250
 local ROSTER_WAIT_MS = 3000
 local DEFAULT_FAMILY = "female"
 
+--- The shipped `BODY_RELOAD_SETTLE_MS`, for a config that lost it.
+local RELOAD_SETTLE_MS = 10000
+
+--- The life phases a native modal may go up in: the ones the platform's own fitting room hands
+--- the player to the native editor from.
+local LIFE_OPEN = { alive = true, recovering = true }
+
 --- The scheduler clock in milliseconds; `monotonic` answers SECONDS. A non-finite reading is
 --- dropped rather than propagated: a NaN would expire nothing, an infinity everything.
 ---@return integer
@@ -104,13 +111,6 @@ local function inGameplay()
 end
 Runtime.inGameplay = inGameplay
 
---- Whether a face may go on the puppet now: the gameplay world, not a body that is about to be
---- replaced by a reload, and a player past the "continue" screen.
----@return boolean
-function Runtime.faceable()
-  return State.worldEligible and not State.bodyReloading and inGameplay()
-end
-
 --- The host's character bootstrap phase, or "unreadable".
 ---@return string
 local function bootstrapPhase()
@@ -119,14 +119,78 @@ local function bootstrapPhase()
 end
 Runtime.bootstrapPhase = bootstrapPhase
 
+--- The host's word on this world entry's pristine player reset -- "complete" once it has run --
+--- or nil where the host projects none. Read live: it goes back to "complete" only when a reset
+--- finishes, while `open77:playerReset:complete` can be missed by a reload.
+---@return string|nil
+local function playerResetPhase()
+  local ok, bootstrap = pcall(Open77.session.characterBootstrap)
+  if not ok or type(bootstrap) ~= "table" or bootstrap.playerReset == nil then return nil end
+  return tostring(bootstrap.playerReset)
+end
+Runtime.playerResetPhase = playerResetPhase
+
+--- Said once, when this client cannot read its own life state at all.
+local lifeUnreadable = false
+
+--- The local player's life phase; false while the player has none, which is the case behind
+--- the "continue" screen; nil when this client cannot read it, which gates nothing.
+---@return string|false|nil
+local function lifePhase()
+  if lifeUnreadable then return nil end
+  local players = Open77.players
+  local called, life, reason = false, nil, "Open77.players.getLifeState is not on this client"
+  if type(players) == "table" and type(players.getLifeState) == "function" then
+    called, life, reason = pcall(players.getLifeState)
+  end
+  if called and type(life) == "table" then return tostring(life.phase) end
+  if called and not tostring(reason or ""):find("permission", 1, true) then return false end
+  lifeUnreadable = true
+  Open77.log.warn(("the life state cannot be read (%s): faces go on without waiting for it")
+    :format(tostring(called and reason or life or reason)))
+  return nil
+end
+Runtime.lifePhase = lifePhase
+
+--- `BODY_RELOAD_SETTLE_MS`, or the shipped value for one that is not a finite number of ms.
+---@return number
+local function reloadSettleMs()
+  local wait = tonumber(Config.BODY_RELOAD_SETTLE_MS)
+  if wait == nil or wait ~= wait or wait < 0 or wait >= math.huge then return RELOAD_SETTLE_MS end
+  return wait
+end
+
+--- Whether a face or a native modal may go on the puppet now: the gameplay world, not a body
+--- that is about to be replaced by a reload, a player past the "continue" screen whose pristine
+--- reset has run, and -- after a reload -- the respawn the platform replays onto the new puppet
+--- over. The same conditions the platform's fitting room waits on before the native editor.
+---@return boolean
+function Runtime.faceable()
+  if not State.worldEligible or State.bodyReloading or not inGameplay() then return false end
+  local reset = playerResetPhase()
+  if reset ~= nil and reset ~= "complete" then return false end
+  local life = lifePhase()
+  if life == false or (life ~= nil and not LIFE_OPEN[life]) then return false end
+  if State.reloadSettleUntilMs ~= 0 then
+    -- The editor the game never consumed was asked for during the reset, with that respawn
+    -- about to start; which of the two it minded is not known, so both are waited out. Capped:
+    -- a phase that never reads "alive" costs a wait, not a player.
+    if life ~= nil and life ~= "alive" and nowMs() < State.reloadSettleUntilMs then
+      return false
+    end
+    State.reloadSettleUntilMs = 0
+  end
+  return true
+end
+
 --- Decide whether this world is the gameplay one or the pre-game menu, from the bootstrap
 --- phase. Called from the world-entry events only, because polling would read `ready` too early.
+--- It does not end a body reload: a reload attaches the world twice, first for the covered
+--- return to the menu and then for the target save, and both read `ready`.
 ---@param reason string
 local function markWorldEligibility(reason)
   local phase = bootstrapPhase()
   State.worldEligible = phase == "ready"
-  -- a world entry is the body reload arriving, whichever one asked for it
-  State.bodyReloading = false
   Open77.log.debug(("world entry (%s): bootstrap phase=%s -> %s"):format(reason, phase,
     State.worldEligible and "gameplay world" or "menu, not announcing"))
 end
@@ -143,14 +207,23 @@ end
 -- The body family
 -- ---------------------------------------------------------------------------
 
---- The body family the puppet is on: the engine's word, else the one this client last loaded.
+--- The body family the puppet is on: the engine's word, else the one this client last loaded,
+--- else the one the bootstrap resolved. `captureBody` answers nothing on this build, and a
+--- restart of this resource forgets what it loaded: without the bootstrap's word the body would
+--- read unknown and be reloaded for nothing.
 ---@return string|nil
 function Runtime.bodyFamily()
   local read, body = pcall(Open77.appearance.captureBody)
   if read and type(body) == "table" and Snapshot.isFamily(body.family) then
     return body.family
   end
-  return State.bodyFamily
+  if State.bodyFamily ~= nil then return State.bodyFamily end
+  local ok, bootstrap = pcall(Open77.session.characterBootstrap)
+  if ok and type(bootstrap) == "table" and bootstrap.phase == "ready" and
+    Snapshot.isFamily(bootstrap.family) then
+    return bootstrap.family
+  end
+  return nil
 end
 
 --- Ask the engine to reload the player on `family`. Only a reload shows the other body, and the
@@ -164,8 +237,12 @@ function Runtime.switchBody(family, edit)
   if switched then
     State.bodyFamily = family
     State.bodyReloading = true
+    State.reloadResetSeen = false
+    State.reloadSettleUntilMs = 0
     -- the reload brings a pristine puppet: nothing this client put on the old one survives
     State.undress()
+    Open77.log.info(("the %s body is reloading (%s)"):format(family,
+      edit and "an editor reopens after it" or "for the character"))
     return "switching"
   end
   if tostring(reason) == "body_family_already_active" then
@@ -173,6 +250,36 @@ function Runtime.switchBody(family, edit)
     return "active"
   end
   return nil, tostring(reason or "body_family_switch_failed")
+end
+
+--- The body reload has put its new puppet through its pristine reset: from here the world
+--- entry is the character's, and its face is decided again on the body it now has. A reload
+--- that failed before reaching a world is ended by `takeBodyFamilyTransition` instead.
+---@param origin string
+function Runtime.finishReload(origin)
+  if not State.bodyReloading then return end
+  State.bodyReloading = false
+  State.reloadResetSeen = false
+  State.reloadSettleUntilMs = nowMs() + reloadSettleMs()
+  Open77.log.info(("the body reload reached its new puppet (%s)"):format(origin))
+  State.enterWorld()
+  State.playerResetDone = true
+  markWorldEligibility(origin)
+  Runtime.resolveCharacter("body_reload")
+end
+
+--- Follow a reload through the host's reset projection, for a reload whose
+--- `open77:playerReset:complete` never reaches this resource. The projection still reads the
+--- old puppet's "complete" right after the switch, so only a return to it counts.
+function Runtime.watchReload()
+  if not State.bodyReloading then return end
+  local reset = playerResetPhase()
+  if reset == nil then return end
+  if reset ~= "complete" then
+    State.reloadResetSeen = true
+  elseif State.reloadResetSeen then
+    Runtime.finishReload("reset_projection")
+  end
 end
 
 --- One reload onto the live character's own body family, counted against `FAMILY_RETRIES`.
@@ -272,9 +379,10 @@ local function awaitWorld(token, label)
     if not State.current(token) then return false end
     if not said and nowMs() - waitedFrom > 60000 then
       said = true
-      Open77.log.warn(("%s token=%d is still waiting: eligible=%s reloading=%s gameplay=%s")
-        :format(label, token, tostring(State.worldEligible), tostring(State.bodyReloading),
-          tostring(inGameplay())))
+      Open77.log.warn(("%s token=%d is still waiting: eligible=%s reloading=%s gameplay=%s " ..
+        "reset=%s life=%s"):format(label, token, tostring(State.worldEligible),
+          tostring(State.bodyReloading), tostring(inGameplay()), tostring(playerResetPhase()),
+          tostring(lifePhase())))
     end
     Wait(WATCH_MS)
   end
@@ -575,13 +683,9 @@ AddEventHandler("open77:appearance:restore_failed", function()
 end)
 
 AddEventHandler("open77:playerReset:complete", function()
-  -- A body reload that reached the world without a `worldReady` of its own: judged here, or
-  -- nothing would ever go on the new puppet.
-  if State.bodyReloading then
-    State.enterWorld()
-    markWorldEligibility("playerReset")
-    Runtime.resolveCharacter("body_reload")
-  end
+  -- The only world entry of a body reload a face may go on: the covered return to the menu
+  -- attaches a world as well, and its puppet never gets a reset.
+  Runtime.finishReload("playerReset")
   State.playerResetDone = true
   Runtime.announce()
 end)
@@ -675,7 +779,9 @@ AddEventHandler("onClientResourceStart", function(name)
     while true do
       Wait(WATCH_MS)
       -- a raise from a host call would end this loop for the session, and this loop is what
-      -- clears the platform's readiness hold
+      -- ends a reload and clears the platform's readiness hold
+      local watched, reason = pcall(Runtime.watchReload)
+      if not watched then Open77.log.error("reload watch: " .. tostring(reason)) end
       local ok, failure = pcall(Runtime.announce)
       if not ok then Open77.log.error("announce worker: " .. tostring(failure)) end
     end

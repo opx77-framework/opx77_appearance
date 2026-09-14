@@ -91,6 +91,10 @@ In `0.6.0` `openCreator` opens the in-world editor rather than the pre-world van
 and no longer refuses with `bootstrap_already_spent`. `isSettled` can answer `waiting = "body"`
 while the world reloads onto the character's body family.
 
+In `0.7.0` a body reload ends when its new puppet has been through its pristine reset, not at
+the first world attach, so `waiting = "body"` lasts until then. `state` reports two more fields,
+`body` and `bodyReloading`. The manifest asks for `players.life.read`.
+
 `isSettled` is the gate question — is this world entry's face done, and if not what is it
 waiting on. `state` is the diagnostic report behind it. Every export answers a table carrying
 `ok`, never raises, and takes its caller from `GetInvokingResource()`.
@@ -193,12 +197,36 @@ end)
 `openCreator` opens Cyberpunk's own mirror in the world, in `ripperdoc` mode, on the body family
 the character was created with (`charInfo.gender`):
 
-1. it waits for a puppet a face may go on — the gameplay world, past the "continue" screen;
+1. it waits for a puppet a face may go on — the gameplay world, past the "continue" screen,
+   its pristine reset `complete` and its life phase `alive` or `recovering`;
 2. when the world is on the other body it reloads the player with
    `Open77.appearance.switchBodyFamily(gender, true)`, and reopens the editor once
    `Open77.appearance.takeBodyFamilyTransition()` answers `edit:<gender>` on the other side of
-   the reload;
+   the reload — and only once the new puppet has been through its reset and the respawn the
+   platform replays onto it has ended (below);
 3. it opens `Open77.appearance.open({ mode = "ripperdoc", gender = gender })`.
+
+### A body reload, step by step
+
+`switchBodyFamily` attaches the world **twice**: first a covered return to the pre-game menu,
+then the target save. Both raise `open77:worldReady` with the bootstrap `ready`, and the menu's
+puppet answers attached and alive, so neither attach says the reload is over. The reload ends
+when the new puppet's pristine reset has run — `open77:playerReset:complete`, or the host's
+`characterBootstrap().playerReset` returning to `complete` after it left it.
+`takeBodyFamilyTransition` answers with the target world, before that reset, so it is not the
+end either.
+
+After the reset the platform replays the character's placement onto the new puppet, a respawn
+with a grace window. Faces and the creation editor wait for the life phase to read `alive`, for
+at most `BODY_RELOAD_SETTLE_MS`. An editor asked for during the reset was acknowledged by the
+game and never consumed, retried every second for as long as the session lasted.
+
+**A known platform issue.** On `open77-server-2.31.13+op77.63` the OPEN//77 loading cover the
+host puts up for the covered transition is not taken down by anything after it: `open77_shell`
+lifts it only for the join-time pristine load, and no `open77:shell:hide` follows the
+transition. No resource can lift it. Until the platform does, a player who selects a character
+whose body is not the one loaded at join, or creates one of the other body, can be left behind
+the cover; `opx77_charcreator` proposes the loaded body first to keep the second case rare.
 
 Everything after the player confirms belongs here again — the capture, the check that the body
 they built on is the body their character is, and the save through `opx77_core`. The outcome
@@ -224,8 +252,8 @@ library:
   - otherwise on `BOOTSTRAP.DEFAULT_FAMILY`.
 - **The character's body family in the world.** A selected character whose `charInfo.gender`
   is not the body the world loaded is reloaded onto it with
-  `Open77.appearance.switchBodyFamily(gender, false)` before any face goes on; the world entry
-  that follows the reload runs the restore again. `body_family_already_active` counts as done,
+  `Open77.appearance.switchBodyFamily(gender, false)` before any face goes on; the restore runs
+  again once the new puppet has been through its reset. `body_family_already_active` counts as done,
   and `FAMILY_RETRIES` bounds the reloads per character.
 - **The join-time restore.** A stored face is applied only once the puppet is attached, alive and
   past the "press any key to continue" screen — applying it earlier arms a native watchdog that
@@ -300,6 +328,7 @@ snapshot fit; it only stops this resource from saying so.
 | `CREATION_WAIT_MS` | how long `needsCreation` waits for `openCreator` before the default face | 15,000 ms |
 | `COMMIT_MS` | how long the core has to answer a captured face | 20,000 ms |
 | `SAVE_COOLDOWN_MS` | the core's own cooldown, waited out before a capture goes out | 2,000 ms |
+| `BODY_RELOAD_SETTLE_MS` | how long a face or the creation editor waits for the respawn replayed after a body reload | 10,000 ms |
 
 There is no deadline on building a face once the editor is open: a player deliberating for an
 hour leaves the readiness gate closed for an hour, and a player who alt-F4s out of the editor

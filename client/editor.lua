@@ -95,6 +95,14 @@ end
 --- A creation editor is being waited for or opened, so a second ask does not open two.
 local creatorOpening = false
 
+--- When the creation editor was last asked for, and whether it has been on screen since. `open`
+--- answers true on a queued request, and the game may never consume it.
+local creatorAskedAtMs = 0
+local creatorShown = false
+
+--- How long an asked-for creation editor may stay off screen before the log says so, in ms.
+local CREATOR_UNSEEN_MS = 30000
+
 --- Open the in-world editor on the character's own body, for a character that has no stored
 --- face. The editor for the other body opens on that body's puppet, so a body that differs is
 --- reloaded first and the editor is reopened from `takeBodyFamilyTransition` after it.
@@ -106,8 +114,9 @@ local function openCreator()
   creatorOpening = true
   local citizen = State.citizenId
   CreateThread(function()
-    -- the editor needs the gameplay puppet, which the character's placement can still be
-    -- putting back up
+    -- The editor needs the gameplay puppet, which the character's placement can still be
+    -- putting back up. After a body reload that means its reset as well: an editor asked for
+    -- before it was acknowledged by the game, then never consumed, however often retried.
     while not Runtime.faceable() do
       if not State.creating or State.citizenId ~= citizen then
         creatorOpening = false
@@ -137,6 +146,8 @@ local function openCreator()
     local opened, reason = Open77.appearance.open({ mode = "ripperdoc", gender = family })
     if opened then
       State.creatorUp = true
+      creatorAskedAtMs, creatorShown = Runtime.nowMs(), false
+      Open77.log.info(("creation editor asked for on the %s body"):format(tostring(family)))
       return
     end
     Runtime.notify("error", "appearance.creatorUnavailable", { reason = tostring(reason) })
@@ -388,6 +399,7 @@ local function resumeFamilyTransition()
   if action == "error" then
     Runtime.notify("error", "appearance.bodyChangeFailed", { reason = tostring(family) })
     -- no reload is coming: this world is judged again and the face decided on the body it has
+    State.bodyReloading = false
     Runtime.markWorldEligibility("body_family_transition_error")
     if creationStalled() then return enterPristine("body_family_mismatch") end
     State.settled = false
@@ -402,7 +414,9 @@ local function resumeFamilyTransition()
     Runtime.notify("error", "appearance.bodyChangeInvalid")
     return true
   end
-  -- the editor the creation asked for before the reload
+  -- The editor the creation asked for before the reload. The answer comes with the target
+  -- world, before its puppet's reset: `openCreator` waits for the reset and the respawn after it.
+  Open77.log.info(("body family transition answered %s"):format(result))
   if creationStalled() then openCreator() end
   return true
 end
@@ -415,6 +429,20 @@ local function watch()
   -- A creation whose reload entered the world without the transition answering: the editor
   -- is reopened all the same, or the readiness gate would wait on it for ever.
   if creationStalled() and Runtime.faceable() then openCreator() end
+
+  -- Said once per ask, and nothing more: there is no call that withdraws a queued editor.
+  if State.creatorUp and creatorAskedAtMs ~= 0 and not creatorShown then
+    -- a raise counts as on screen, as it does for the panel
+    local read, open = pcall(Open77.appearance.isOpen)
+    local waited = Runtime.nowMs() - creatorAskedAtMs
+    if not read or open == true then
+      creatorShown = true
+    elseif waited >= CREATOR_UNSEEN_MS then
+      creatorShown = true
+      Open77.log.warn(("the creation editor asked for %d ms ago is not on screen: reset=%s life=%s")
+        :format(waited, tostring(Runtime.playerResetPhase()), tostring(Runtime.lifePhase())))
+    end
+  end
 
   -- A capture that went out and was never answered. The modal is already closed, so nothing
   -- is taken away from anybody.

@@ -28,6 +28,11 @@ OPX_APPEARANCE_CONFIG = {
   -- they are on.
   FAMILY_RETRIES = 2,
 
+  -- After a body reload's new puppet has been through its reset, how long a face and the
+  -- creation editor may wait for the respawn the platform replays onto it to end (life phase
+  -- "alive"), in ms. A phase that reads "alive" sooner ends the wait sooner.
+  BODY_RELOAD_SETTLE_MS = 10000,
+
   -- How long a character with no stored face waits for something to answer `needsCreation`,
   -- in ms. Past it this resource says nobody did and lets the player in on the default face.
   -- It never opens the editor itself.
