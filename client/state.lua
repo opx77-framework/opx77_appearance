@@ -79,9 +79,18 @@ State.familyAttempts = 0
 ---@type string|nil
 State.bodyFamily = nil
 
---- A body switch went out and its reload has not entered the world yet. The puppet still
---- standing there is the old body, so nothing is applied to it and nothing is announced.
+--- A body switch went out and its new puppet has not been through its pristine reset yet. The
+--- puppet standing there is the old body or the menu's, so nothing is applied to it, no editor
+--- is opened on it, and nothing is announced. A world entry alone does not end it.
 State.bodyReloading = false
+
+--- The host's reset projection has left "complete" since the switch, so its next "complete" is
+--- the new puppet's.
+State.reloadResetSeen = false
+
+--- Until when a finished reload holds modals back while the respawn the platform replays onto
+--- the new puppet runs, in ms; 0 when nothing does.
+State.reloadSettleUntilMs = 0
 
 --- This character's creation ended without a face, and `openCreator` must not reopen it until
 --- the character changes or this resource restarts. `openEditor` still can.
@@ -209,5 +218,6 @@ function State.report()
     editing = State.editing,
     worldEligible = State.worldEligible,
     announced = State.gameplayAnnounced,
+    bodyReloading = State.bodyReloading,
   }
 end

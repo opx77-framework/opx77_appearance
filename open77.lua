@@ -1,5 +1,5 @@
 resource "opx77_appearance"
-version "0.6.0"
+version "0.7.0"
 open77_version ">=0.0.1"
 auto_start true
 
@@ -26,9 +26,14 @@ permissions {
   "player.appearance.read",
   "player.appearance.edit",
 
+  -- The local player's life state, read only: no face and no editor goes on a player behind
+  -- the "continue" screen or inside the respawn a body reload replays.
+  "players.life.read",
+
   -- No `webui.*`: this resource draws nothing of its own. The panel is a menu, and
   -- opx77_menu owns that surface.
 
-  -- Deliberately not requested: database.access, players.life.*, world.*, combat.config.
-  -- opx77_core owns the face and every write to it; this resource only dresses a puppet.
+  -- Deliberately not requested: database.access, the players.life.* writes, world.*,
+  -- combat.config. opx77_core owns the face and every write to it; this resource only dresses
+  -- a puppet.
 }

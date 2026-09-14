@@ -112,6 +112,8 @@
 ---@field editing boolean
 ---@field worldEligible boolean this world attachment is the gameplay one
 ---@field announced boolean     `open77:session:gameplayReady` has gone out
+---@field body BodyFamily|nil   the body the puppet is on, as far as this client can tell
+---@field bodyReloading boolean a body reload has not been through its new puppet's reset yet
 ---@field panel boolean         this resource's own panel is on screen
 
 --- Which of this resource's decisions an event reports.
