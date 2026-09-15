@@ -221,11 +221,12 @@ end)
 --- @export endClothingPreview
 --- @description Takes the puppet back: keep saves what it wears, otherwise the record goes back on.
 --- @param keep {boolean|nil}
+--- @param records {table|nil} The record names put on, so their TweakDB ids read back by name.
 --- @returns {AppearanceResponse}
-exports('endClothingPreview', function(keep)
+exports('endClothingPreview', function(keep, records)
 	local gone = nobody()
 	if gone then return gone end
-	local ok, reason = OpxAppearance.Clothing.EndPreview(caller(), keep == true)
+	local ok, reason = OpxAppearance.Clothing.EndPreview(caller(), keep == true, records)
 	if not ok then return response(false, { error = reason }) end
 	return response(true, {})
 end)

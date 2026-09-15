@@ -147,12 +147,83 @@ local candidate, candidateAtMs = nil, 0
 local previewOwner = nil
 
 --- @author DemiAutomatic
+--- @type {integer[]}
+--- @description The CRC-32 table a TweakDB id is hashed with.
+local CRC = {}
+for index = 0, 255 do
+	local value = index
+	for _ = 1, 8 do
+		value = (value & 1) == 1 and ((value >> 1) ~ 0xEDB88320) or (value >> 1)
+	end
+	CRC[index] = value
+end
+
+--- @author DemiAutomatic
+--- @type {table<string, string>}
+--- @description Record names by the TweakDB id the registry reads them back as.
+local names = {}
+
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description Record names already hashed into names.
+local learned = {}
+
+--- @author DemiAutomatic
+--- @method tweakId
+--- @description Answers a record name's TweakDB id as the registry prints it: length, then CRC-32.
+--- @param record {string}
+--- @returns {string}
+local function tweakId(record)
+	local crc = 0xFFFFFFFF
+	for index = 1, #record do
+		crc = (crc >> 8) ~ CRC[(crc ~ record:byte(index)) & 0xFF]
+	end
+	return ('0X%08X%08X'):format(#record, crc ~ 0xFFFFFFFF)
+end
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Learn
+--- @description Remembers a record name so its TweakDB id reads back as the name.
+--- @param record {any}
+function OpxAppearance.Clothing.Learn(record)
+	if type(record) ~= 'string' or record == '' or learned[record] then return end
+	if record:match('^0[xX]%x+$') then return end
+	learned[record] = true
+	names[tweakId(record)] = record
+end
+local learn = Clothing.Learn
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Resolve
+--- @description Answers the record name behind a TweakDB id the registry returned, or the value.
+--- @param value {any}
+--- @returns {any}
+function OpxAppearance.Clothing.Resolve(value)
+	if type(value) ~= 'string' or not value:match('^0[xX]%x+$') then return value end
+	local key = value:upper()
+	if names[key] then return names[key] end
+	local equipment = Open77.equipment
+	if type(equipment) == 'table' and type(equipment.info) == 'function' then
+		local read, info = pcall(equipment.info, value)
+		if read and type(info) == 'table' and type(info.record) == 'string' and
+			not info.record:match('^0[xX]%x+$') then
+			learn(info.record)
+			return info.record
+		end
+	end
+	return value
+end
+local resolve = Clothing.Resolve
+
+--- @author DemiAutomatic
 --- @method recordOf
 --- @description Answers a record name, or false for an empty slot.
 --- @param value {any}
 --- @returns {string|false}
 local function recordOf(value)
-	return type(value) == 'string' and value ~= '' and value or false
+	if type(value) ~= 'string' or value == '' then return false end
+	learn(value)
+	return resolve(value)
 end
 
 --- @author DemiAutomatic
@@ -178,7 +249,7 @@ local function normalize(value)
 			for _, slot in ipairs(OUTFIT_SLOTS) do
 				local item = overrides[slot]
 				if item == false or (type(item) == 'string' and item ~= '') then
-					shown[slot], any = item, true
+					shown[slot], any = item and recordOf(item), true
 				end
 			end
 			if any then out.wardrobe.outfits[tostring(index)] = shown end
@@ -678,11 +749,15 @@ end
 --- @description Takes the puppet back, saving what it wears or putting the record back on.
 --- @param owner {string}
 --- @param keep {boolean}
+--- @param records {table|nil} The record names the fitting room put on, so they read back by name.
 --- @returns {boolean, string|nil}
-function OpxAppearance.Clothing.EndPreview(owner, keep)
+function OpxAppearance.Clothing.EndPreview(owner, keep, records)
 	if previewOwner == nil then return false, 'no_preview' end
 	if previewOwner ~= owner then return false, 'not_owner' end
 	previewOwner = nil
+	if type(records) == 'table' then
+		for _, record in pairs(records) do learn(record) end
+	end
 	if keep then
 		local worn = readWorn()
 		if worn ~= nil and not same(worn, wanted) then
