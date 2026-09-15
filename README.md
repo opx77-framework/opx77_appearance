@@ -310,7 +310,7 @@ slots with a record or hiding one with `false`; and the active outfit. It arrive
 |---|---|
 | a record | it goes on, and changes are saved |
 | `false` — none stored yet | the platform's default record goes on — every slot empty but `Items.Underwear_Basic_01_Bottom`, no outfit — and the first change is saved |
-| absent — an `opx77_core` older than `0.5.0`, its clothing table missing, or a row it could not read | nothing is put on and nothing is saved |
+| absent — an `opx77_core` older than `0.5.0`, or a row it could not read | nothing is put on and nothing is saved |
 
 ```lua
 TriggerServerEvent("opx77:server:saveClothing", { citizenId = citizenId, clothing = record })

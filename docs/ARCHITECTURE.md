@@ -426,4 +426,6 @@ visage, sans les métadonnées d'éditeur que le codec de valeurs du runtime ne 
 - **Pas de choix de tenue** : il faudrait un catalogue de vêtements avec des libellés, qu'aucune
   resource ne publie (`outfitsItems` dans `client/panel.lua`).
 - **Horloge figée.** `nowMs` garde sa dernière lecture quand `Open77.time.monotonic` échoue : tous
-  les délais du fichier en dépendent, et un commit pourrait ne jamais expirer.
+  les délais du client en dépendent, et un commit pourrait ne jamais expirer. Il n'y a pas de
+  repli : `GetGameTimer` est documenté côté serveur seulement et n'existe pas sur un client, et
+  aucune autre horloge monotone n'y est exposée. La moitié serveur lit `GetGameTimer`.
