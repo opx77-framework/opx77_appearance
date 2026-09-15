@@ -46,5 +46,22 @@ function OpxAppearance.Clothing.Settled() end
 ---@return AppearanceClothingPhase
 function OpxAppearance.Clothing.Report() end
 
+--- Whether a fitting room holds the puppet.
+---@return boolean
+function OpxAppearance.Clothing.Previewing() end
+
+--- Lends the puppet to `owner`'s fitting room once the clothes are worn and no save is out:
+--- until it is given back, nothing is saved, restored or published. Answers what it wears.
+---@param owner string
+---@return AppearanceClothing|nil, string|nil
+function OpxAppearance.Clothing.BeginPreview(owner) end
+
+--- Takes the puppet back from `owner`: `keep` saves what it wears now, otherwise the record
+--- goes back on.
+---@param owner string
+---@param keep boolean
+---@return boolean, string|nil
+function OpxAppearance.Clothing.EndPreview(owner, keep) end
+
 --- One clothing pass: the save deadline, then a put-on, a read-back or a save.
 function OpxAppearance.Clothing.Check() end

@@ -1,6 +1,6 @@
 --- @author DemiAutomatic
 --- @file client/exports.lua
---- @description The twelve client exports, each answering a table carrying ok.
+--- @description The fourteen client exports, each answering a table carrying ok.
 
 local State = OpxAppearance.State
 local Snapshot = OpxAppearance.Snapshot
@@ -197,6 +197,36 @@ exports('closePanel', function()
 	if not Panel.IsOpen() then return response(false, { error = 'no_panel_open' }) end
 	if Panel.Owner() ~= caller() then return response(false, { error = 'not_owner' }) end
 	Panel.Close('caller')
+	return response(true, {})
+end)
+
+--- @author DemiAutomatic
+--- @export beginClothingPreview
+--- @description Lends the puppet to the caller's fitting room, answering what it wears.
+--- @returns {AppearanceClothingPreview}
+exports('beginClothingPreview', function()
+	local gone = nobody()
+	if gone then return gone end
+	if Runtime.IsDown() then return response(false, { error = 'player_down' }) end
+	local worn, reason = OpxAppearance.Clothing.BeginPreview(caller())
+	if worn == nil then return response(false, { error = reason }) end
+	return response(true, {
+		clothing = worn,
+		family = Runtime.BodyFamily(),
+		citizenId = State.citizenId,
+	})
+end)
+
+--- @author DemiAutomatic
+--- @export endClothingPreview
+--- @description Takes the puppet back: keep saves what it wears, otherwise the record goes back on.
+--- @param keep {boolean|nil}
+--- @returns {AppearanceResponse}
+exports('endClothingPreview', function(keep)
+	local gone = nobody()
+	if gone then return gone end
+	local ok, reason = OpxAppearance.Clothing.EndPreview(caller(), keep == true)
+	if not ok then return response(false, { error = reason }) end
 	return response(true, {})
 end)
 

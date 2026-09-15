@@ -181,6 +181,7 @@ local function presentable()
 		State.AppearanceSettled() and Runtime.InGameplay()) then
 		return false
 	end
+	if Clothing.Previewing() then return false end
 	return Clothing.Settled()
 end
 

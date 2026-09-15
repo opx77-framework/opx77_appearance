@@ -142,6 +142,11 @@ local attempts, appliedAtMs, holdFromMs = 0, 0, 0
 local candidate, candidateAtMs = nil, 0
 
 --- @author DemiAutomatic
+--- @type {string|nil}
+--- @description The resource trying clothes on the puppet, nil while none is.
+local previewOwner = nil
+
+--- @author DemiAutomatic
 --- @method recordOf
 --- @description Answers a record name, or false for an empty slot.
 --- @param value {any}
@@ -496,7 +501,7 @@ end
 --- @description Starts a world entry: the pristine puppet is dressed again.
 function OpxAppearance.Clothing.EnterWorld()
 	target, attempts, appliedAtMs, holdFromMs = nil, 0, 0, 0
-	candidate = nil
+	candidate, previewOwner = nil, nil
 	phase = (citizen ~= nil and stored ~= nil and enabled()) and 'waiting' or 'idle'
 end
 
@@ -546,9 +551,60 @@ end
 --- @description Answers the clothing phase the state export reports.
 --- @returns {AppearanceClothingPhase}
 function OpxAppearance.Clothing.Report()
+	if previewOwner ~= nil then return 'previewing' end
 	if phase == 'worn' and pending ~= nil then return 'saving' end
 	if phase == 'worn' and not saving then return 'unsaved' end
 	return phase
+end
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Previewing
+--- @description Whether a resource is trying clothes on the puppet.
+--- @returns {boolean}
+function OpxAppearance.Clothing.Previewing()
+	return previewOwner ~= nil
+end
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.BeginPreview
+--- @description Lends the puppet to a fitting room: nothing is saved or published meanwhile.
+--- @param owner {string}
+--- @returns {table|nil, string|nil}
+function OpxAppearance.Clothing.BeginPreview(owner)
+	if previewOwner ~= nil then return nil, 'preview_busy' end
+	if citizen == nil then return nil, 'no_character' end
+	if stored == nil or not enabled() then return nil, 'clothing_unavailable' end
+	if not saving then return nil, 'clothing_not_saved' end
+	if phase ~= 'worn' or not ready() then return nil, 'clothing_not_ready' end
+	if pending ~= nil then return nil, 'clothing_saving' end
+	local worn, reason = readWorn()
+	if worn == nil then return nil, tostring(reason or 'clothing_unreadable') end
+	previewOwner, candidate = owner, nil
+	Open77.log.info(('%s tries clothes on %s'):format(owner, tostring(citizen)))
+	return worn
+end
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.EndPreview
+--- @description Takes the puppet back, saving what it wears or putting the record back on.
+--- @param owner {string}
+--- @param keep {boolean}
+--- @returns {boolean, string|nil}
+function OpxAppearance.Clothing.EndPreview(owner, keep)
+	if previewOwner == nil then return false, 'no_preview' end
+	if previewOwner ~= owner then return false, 'not_owner' end
+	previewOwner = nil
+	if keep then
+		local worn = readWorn()
+		if worn ~= nil and not same(worn, wanted) then
+			candidate, candidateAtMs = worn, Runtime.NowMs() - debounceMs()
+		end
+	else
+		target, attempts, candidate = nil, 0, nil
+		phase = 'waiting'
+	end
+	Open77.log.info(('%s gave the puppet back (%s)'):format(owner, keep and 'kept' or 'restored'))
+	return true
 end
 
 --- @author DemiAutomatic
@@ -556,6 +612,7 @@ end
 --- @description Runs one clothing pass: deadline, put-on, read-back or save.
 function OpxAppearance.Clothing.Check()
 	expire()
+	if previewOwner ~= nil then return end
 	if phase == 'idle' or phase == 'failed' then return end
 	if not ready() then
 		candidate = nil
@@ -580,7 +637,7 @@ AddEventHandler('opx77:client:clothingSaved', function(record)
 	end
 	if pending ~= nil then return end
 	wanted = record
-	if phase == 'worn' or phase == 'failed' then
+	if previewOwner == nil and (phase == 'worn' or phase == 'failed') then
 		Clothing.EnterWorld()
 	end
 end)
@@ -604,4 +661,13 @@ AddEventHandler('opx77:client:refused', function(code, _, operation)
 	if code == 'error.unavailable' then return strike(failed, code) end
 	Open77.log.warn(('clothing save refused: %s'):format(code))
 	publish('clothingSaved', false, code)
+end)
+
+--- @author DemiAutomatic
+--- @event onClientResourceStop
+--- @description Puts the record back on when the fitting room's resource stops.
+--- @param name {string}
+AddEventHandler('onClientResourceStop', function(name)
+	if name ~= previewOwner then return end
+	Clothing.EndPreview(name, false)
 end)
