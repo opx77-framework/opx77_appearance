@@ -104,6 +104,11 @@ the first world attach, so `waiting = "body"` lasts until then. `state` reports 
 In `0.9.0` `state` reports one more field, `clothing`, and two events are new,
 `clothingRestored` and `clothingSaved`. The manifest asks for `player.equipment.edit`.
 
+In `0.10.0` `isOpen`, `openEditor` and `openCreator` no longer raise when the engine cannot say
+whether a native modal is up: `isOpen` answers `open = true` and the other two
+`appearance_busy`, as the panel already did. A character unloaded while its face was still being
+restored no longer gets that face, or a "could not be restored" toast, afterwards.
+
 `isSettled` is the gate question — is this world entry's face done, and if not what is it
 waiting on. `state` is the diagnostic report behind it. Every export answers a table carrying
 `ok`, never raises, and takes its caller from `GetInvokingResource()`.
