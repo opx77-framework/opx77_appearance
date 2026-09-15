@@ -475,7 +475,7 @@ deadlines above, the two retry counts, `BOOTSTRAP` and `CLOTHING`:
 | `LOCALE` | the catalogue player-facing text is read from; server logs stay English | `"en"` |
 | `PRESENT_BODIES` | hand every player's look — body, equipment, outfit — to everybody else and put theirs on here, so other players are drawn at all; stands down by itself while the platform's `open77_appearance` runs, so `false` only when another resource hands looks out. See [How other players see this one](#how-other-players-see-this-one) | `true` |
 | `EVENT` | the client event raised after every decision this resource reaches | `"opx77:appearance"` |
-| `NOTIFY` | whether to raise toasts through `opx77_notify` | `true` |
+| `NOTIFY` | whether to raise toasts through `opx77_notify`; `false` writes every message as a chat line instead, as does a toast that cannot be shown | `true` |
 | `GAME_BUILDS` | the catalogue builds a stored face may be read back into | `{ ["2.31"] = true }` |
 | `COMMIT_MS` | how long `opx77_core` has to answer a captured face or a clothing save before it is given up on, in ms | `20000` |
 | `SAVE_COOLDOWN_MS` | `opx77_core`'s own cooldown on `appearance.request` and `clothing.request`, in ms; a save inside it is held back rather than refused | `2000` |

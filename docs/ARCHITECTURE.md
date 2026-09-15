@@ -82,6 +82,12 @@ Aucune `dependency` n'est déclarée : `opx77_core`, `opx77_menu` et `opx77_noti
   à qui est le refus : le core refuse une sélection de personnage ou un spawn de véhicule avec les
   mêmes codes (`error.tooFast`), donc `client/editor.lua` ne prend que `saveAppearance`
   (`OPX.Operations.SAVE_APPEARANCE`) et `client/clothing.lua` que `saveClothing`.
+- **Messages au joueur** : `Runtime.Notify` lève un toast `opx77_notify` sous un seul id,
+  `opx77_appearance`, avec `replace`, et le titre `appearance.title` du catalogue : un message
+  remplace le précédent au lieu de s'empiler. `NOTIFY = false`, ou un toast qui ne part pas
+  (`opx77_notify` arrêté, refus), écrit une ligne dans le chat à la place ; l'échec est journalisé
+  une fois. La ligne ne porte pas de couleur : les styles `.line.info` / `.line.error` du chat
+  s'appliquent.
 - **Événements réseau de présence** : `opx77_appearance:present`, `:absent`, `:replay` du client
   vers le serveur ; `:presentAck`, `:replayed`, `:look`, `:resend` du serveur vers les clients.
 

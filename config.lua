@@ -4,7 +4,7 @@
 --- @field LOCALE {string} Catalogue code player-facing text is read from.
 --- @field PRESENT_BODIES {boolean} Hand every look to other players; false when another resource does.
 --- @field EVENT {string} Client event raised after every decision.
---- @field NOTIFY {boolean} Raise toasts through opx77_notify.
+--- @field NOTIFY {boolean} Raise toasts through opx77_notify; false writes chat lines instead.
 --- @field GAME_BUILDS {table<string, boolean>} Builds a stored face may be read back into.
 --- @field COMMIT_MS {integer} Milliseconds opx77_core has to answer a face or clothing save.
 --- @field SAVE_COOLDOWN_MS {integer} opx77_core's save cooldown in milliseconds, waited out.

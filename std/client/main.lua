@@ -46,7 +46,9 @@ function OpxAppearance.Runtime.Publish(payload) end
 ---@return string|nil failure
 function OpxAppearance.Runtime.Call(resource, name, ...) end
 
---- Logs a toast and raises it through opx77_notify when `NOTIFY` is true and it runs.
+--- Logs a message and raises it as a toast through opx77_notify, under one id that each new
+--- message replaces. With `NOTIFY = false`, or when the toast cannot be shown, it goes to the
+--- chat box as a line instead.
 ---@param kind "info"|"success"|"warning"|"error"
 ---@param key string a locale key
 ---@param params table<string, string|number>|nil

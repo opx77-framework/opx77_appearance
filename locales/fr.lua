@@ -3,6 +3,8 @@
 --- @description French player-facing text for the appearance resource.
 
 OpxAppearance.Locale.register('fr', {
+	['appearance.title'] = 'APPARENCE',
+
 	['appearance.saved'] = 'Apparence enregistrée.',
 	['appearance.saveFailed'] = 'Apparence non enregistrée : {reason}',
 	['appearance.saveTimedOut'] = 'Apparence non enregistrée : aucune réponse.',

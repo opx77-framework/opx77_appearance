@@ -137,23 +137,53 @@ function OpxAppearance.Runtime.Call(resource, name, ...)
 end
 
 --- @author DemiAutomatic
+--- @type {string}
+--- @description The toast id every message replaces.
+local TOAST_ID = 'opx77_appearance'
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether a toast failure has already been logged.
+local notifyReported = false
+
+--- @author DemiAutomatic
+--- @method chatLine
+--- @description Writes a message as a chat line when no toast is possible.
+--- @param kind {string} info, success, warning or error.
+--- @param message {string}
+local function chatLine(kind, message)
+	local accepted = kind == 'info' or kind == 'success'
+	TriggerEvent('chat:addMessage', {
+		type = accepted and 'info' or 'error',
+		author = locale('appearance.title'),
+		text = message,
+	})
+end
+
+--- @author DemiAutomatic
 --- @method OpxAppearance.Runtime.Notify
---- @description Logs a toast and raises it through opx77_notify when that runs.
+--- @description Logs a message and tells the player by toast, or chat line.
 --- @param kind {string}
 --- @param key {string}
 --- @param params {table<string, string|number>|nil}
 function OpxAppearance.Runtime.Notify(kind, key, params)
 	Open77.log.info(('notify %s: %s'):format(kind, key))
-	if Config.NOTIFY ~= true then return end
-	if GetResourceState(NOTIFY) ~= 'running' then return end
 	local message = locale(key, params)
+	if Config.NOTIFY == false then return chatLine(kind, message) end
 	CreateThread(function()
 		local _, failure = Runtime.Call(NOTIFY, 'show', {
+			id = TOAST_ID,
+			replace = true,
 			type = kind,
-			title = 'APPEARANCE',
+			title = locale('appearance.title'),
 			message = message,
 		})
-		if failure ~= nil then Open77.log.debug('toast refused: ' .. failure) end
+		if failure == nil then return end
+		if not notifyReported then
+			notifyReported = true
+			Open77.log.warn(('no toast (%s): messages go to the chat box instead'):format(failure))
+		end
+		chatLine(kind, message)
 	end)
 end
 

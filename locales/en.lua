@@ -3,6 +3,8 @@
 --- @description English player-facing text for the appearance resource.
 
 OpxAppearance.Locale.register('en', {
+	['appearance.title'] = 'APPEARANCE',
+
 	['appearance.saved'] = 'Appearance saved.',
 	['appearance.saveFailed'] = 'Appearance was not saved: {reason}',
 	['appearance.saveTimedOut'] = 'Appearance was not saved: nothing answered.',
