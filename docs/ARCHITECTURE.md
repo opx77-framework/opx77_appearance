@@ -374,8 +374,9 @@ visage, sans les métadonnées d'éditeur que le codec de valeurs du runtime ne 
   dans la langue du joueur : `appearance.invalid`, `appearance.tooLarge`, `error.badRequest`,
   `error.notLoggedIn`, `error.tooFast`, `error.unavailable`. Le core mappe une panne de stockage
   sur `error.unavailable` avant de l'envoyer.
-- `clothing.invalid` et `clothing.tooLarge` (orphelines pour `localecheck`) sont des codes de refus
-  de `saveClothing` ; aucun chemin ne les affiche aujourd'hui (voir « Limites connues »).
+- Les refus de `saveClothing` (`clothing.invalid`, `clothing.tooLarge`, `clothing.stale`...) ne
+  sont pas des clés : ils ne sont jamais affichés, seulement publiés comme `error` de
+  `clothingSaved` et journalisés.
 
 ## Limites connues
 
@@ -387,7 +388,5 @@ visage, sans les métadonnées d'éditeur que le codec de valeurs du runtime ne 
   enregistrés demandent une table et un travail côté core.
 - **Pas de choix de tenue** : il faudrait un catalogue de vêtements avec des libellés, qu'aucune
   resource ne publie (`outfitsItems` dans `client/panel.lua`).
-- **`clothing.invalid`, `clothing.tooLarge`, `clothing.stale`** sont au catalogue mais jamais
-  affichés : le gestionnaire de refus des vêtements publie et journalise sans toast.
 - **Horloge figée.** `nowMs` garde sa dernière lecture quand `Open77.time.monotonic` échoue : tous
   les délais du fichier en dépendent, et un commit pourrait ne jamais expirer.

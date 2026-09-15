@@ -31,9 +31,6 @@ OpxAppearance.Locale.register('fr', {
 
 	['appearance.clothingRestoreFailed'] = "Vos vêtements enregistrés n'ont pas pu être remis. Rien n'est enregistré avant de vous reconnecter.",
 	['appearance.clothingNotSaved'] = 'Vos vêtements ne sont pas enregistrés pour le moment : {reason}',
-	['clothing.invalid'] = "Ces vêtements n'ont pas pu être lus.",
-	['clothing.tooLarge'] = 'Ces vêtements sont trop nombreux pour être enregistrés.',
-	['clothing.stale'] = 'Ces vêtements appartiennent à un autre personnage.',
 
 	['appearance.invalid'] = "Cette apparence n'a pas pu être lue.",
 	['appearance.tooLarge'] = 'Cette apparence est trop volumineuse pour être enregistrée.',

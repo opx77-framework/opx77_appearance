@@ -31,9 +31,6 @@ OpxAppearance.Locale.register('en', {
 
 	['appearance.clothingRestoreFailed'] = 'Your saved clothes could not be put back on. Changes are not saved until you reconnect.',
 	['appearance.clothingNotSaved'] = 'Your clothes are not being saved right now: {reason}',
-	['clothing.invalid'] = 'Those clothes could not be read.',
-	['clothing.tooLarge'] = 'Those clothes are too many to store.',
-	['clothing.stale'] = 'Those clothes belong to another character.',
 
 	['appearance.invalid'] = 'That appearance could not be read.',
 	['appearance.tooLarge'] = 'That appearance is too large to store.',

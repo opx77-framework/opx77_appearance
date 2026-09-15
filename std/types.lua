@@ -9,8 +9,8 @@
 
 ---@alias AppearanceMode "ripperdoc"|"hairdresser"
 
---- Why something was refused. Codes from this resource are hints; the core sends nine locale
---- keys, all of which this resource's catalogue carries.
+--- Why something was refused. Codes from this resource are hints; the core sends nine codes, and
+--- the six a face save can be refused with are locale keys this resource's catalogue carries.
 ---@alias AppearanceError
 ---| "export_call_required" no invoking resource, so the call came from inside      (client)
 ---| "no_character"         opx77_core has no character loaded here                 (client)
