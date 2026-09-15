@@ -292,7 +292,8 @@ local function tick(atMs)
 
 	if atMs < nextSweepMs then return true end
 	nextSweepMs = atMs + OWNER_SWEEP_MS
-	if GetResourceState(owner) ~= 'running' then
+	local state = GetResourceState(owner)
+	if state ~= 'running' and state ~= 'starting' then
 		Panel.Close('owner_stopped')
 		return false
 	end

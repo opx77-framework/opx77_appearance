@@ -276,7 +276,9 @@ au lieu de l'adopter. Une fermeture par le menu ne compte que si elle porte le h
 du panneau ouvert, ou tant que ce handle n'est pas connu, puisque `opx77_menu` peut retirer une
 liste avant que son export `open` ait répondu ; une fermeture `reopened` est ignorée : c'est
 l'ancienne liste qu'`opx77_menu` remplace, et le `close` que `openNative` envoie depuis un thread
-peut arriver après l'ouverture suivante. `watch`
+peut arriver après l'ouverture suivante. Le balayage du propriétaire compte `starting` comme
+vivant, comme `opx77_notify` : une resource qui ouvre le panneau depuis son propre démarrage ne le
+perd pas à la seconde suivante. `watch`
 protège `tick` par `pcall` et ne journalise qu'une fois par série d'échecs. `wearStored` lit le
 visage et le personnage avant le `yield` : un changement de personnage pendant l'apply est un autre
 visage.
