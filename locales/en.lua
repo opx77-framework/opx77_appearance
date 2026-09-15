@@ -67,5 +67,4 @@ OpxAppearance.Locale.register('en', {
 	['appearance.panel.busy'] = 'Not right now.',
 	['appearance.panel.unavailable'] = 'The appearance panel is unavailable.',
 
-	['appearance.key.panel'] = 'Appearance: open or close the panel',
 })
