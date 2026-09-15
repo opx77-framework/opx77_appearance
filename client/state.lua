@@ -212,8 +212,9 @@ end
 
 --- @author DemiAutomatic
 --- @method OpxAppearance.State.Unload
---- @description Forgets the character and everything about its face.
+--- @description Forgets the character, its face and any restore still under way.
 function OpxAppearance.State.Unload()
+	State.restoreSettledToken = State.NextRestore()
 	State.citizenId = nil
 	State.family = nil
 	State.canonical = nil

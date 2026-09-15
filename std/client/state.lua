@@ -116,7 +116,8 @@ function OpxAppearance.State.AppearanceSettled() end
 --- Clears what a new world entry invalidates, the clothing phase included; keeps the character.
 function OpxAppearance.State.EnterWorld() end
 
---- Forgets the character and everything about its face.
+--- Forgets the character and everything about its face. Takes a new restore generation, marked
+--- settled, so a restore still under way for the departed character stops at its next check.
 function OpxAppearance.State.Unload() end
 
 --- The diagnostic fields the `state` export answers, before `body`, `panel` and `clothing`.

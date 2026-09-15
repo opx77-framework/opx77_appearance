@@ -343,8 +343,11 @@ coupe pour un serveur où une autre resource distribue les looks.
 
 - `State.restoreToken` / `restoreSettledToken` : chaque restauration (`BeginRestore`,
   `BeginPristine`) prend une génération par `State.NextRestore` ; un thread qui tient un jeton plus
-  ancien a été remplacé et s'arrête (`State.Current`). `adoptCharacter` en prend une nouvelle et la
-  marque réglée, pour qu'un changement de personnage remplace aussi une restauration en route.
+  ancien a été remplacé et s'arrête (`State.Current`). `adoptCharacter` et `State.Unload` en prennent une
+  nouvelle et la marquent réglée : un changement de personnage ou un déchargement remplace une
+  restauration en route, qui sinon attendrait le monde et appliquerait le visage du personnage
+  parti (ou publierait un `restored` en échec sans personnage). La marquer réglée est voulu : un
+  jeton laissé derrière rendrait `AppearanceSettled` faux pour toujours.
 - `session` dans `client/panel.lua` : un thread du panneau (ouverture, redessin, ligne d'état,
   surveillance) compare la session qu'il a lue.
 - `citizen` capturé par `openCreator` et `wearStored` : l'attente s'arrête si le personnage change.
@@ -386,9 +389,5 @@ visage, sans les métadonnées d'éditeur que le codec de valeurs du runtime ne 
   resource ne publie (`outfitsItems` dans `client/panel.lua`).
 - **`clothing.invalid`, `clothing.tooLarge`, `clothing.stale`** sont au catalogue mais jamais
   affichés : le gestionnaire de refus des vêtements publie et journalise sans toast.
-- **Un personnage déchargé ne remplace pas sa restauration.** `State.Unload` vide le personnage
-  sans avancer `restoreToken` : une restauration en route pour le personnage parti peut attendre le
-  monde et appliquer l'ancien visage au suivant. La branche `fix/connection-control-audit` corrige
-  ce point mais entre en conflit avec la base.
 - **Horloge figée.** `nowMs` garde sa dernière lecture quand `Open77.time.monotonic` échoue : tous
   les délais du fichier en dépendent, et un commit pourrait ne jamais expirer.
