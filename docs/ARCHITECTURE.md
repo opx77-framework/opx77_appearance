@@ -347,7 +347,9 @@ sans `open77_appearance`. Un proxy sans look n'est jamais habillé : le joueur n
   ne coûte pas son corps au joueur. Le propriétaire ne reçoit jamais son propre look : les relais de
   la plateforme ignorent leur joueur, dont le look est celui du moteur. `deliver` n'écrit pas
   `absent and false or look`, qui relirait le look chaque fois que le corps est absent. `FLOOR_MS`
-  borne publications et rejeux par joueur ; le client retente quand personne n'a répondu, donc une
+  borne publications et rejeux par joueur, sur `GetGameTimer`, l'horloge monotone du processus
+  serveur : une horloge qui répondrait 0 rendrait l'écart négatif et couperait le joueur tant
+  qu'elle ne se lit pas ; le client retente quand personne n'a répondu, donc une
   demande jetée coûte des secondes, pas un look.
 - **Buckets.** Le roster natif retire les répliques d'un joueur qui change de bucket de routage,
   et rien de ce que le moteur réplique ne les reconstruit : sur `onPlayerBucketChange`, le joueur et

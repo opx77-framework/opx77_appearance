@@ -22,6 +22,7 @@
     "RegisterCommand",
     "GetCurrentResourceName",
     "GetResourceState",
+    "GetGameTimer",
     "GetPlayerIdentifier",
     "GetInvokingResource",
     "GetInvokingResourceGeneration",

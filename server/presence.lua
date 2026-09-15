@@ -93,15 +93,10 @@ local warned = {}
 
 --- @author DemiAutomatic
 --- @method nowMs
---- @description Reads the monotonic clock in milliseconds, 0 when unusable.
+--- @description Reads the server's process-monotonic game timer in milliseconds.
 --- @returns {integer}
 local function nowMs()
-	local read, seconds = pcall(Open77.time.monotonic)
-	if read and type(seconds) == 'number' and seconds == seconds and seconds >= 0 and
-		seconds < math.huge then
-		return math.floor(seconds * 1000)
-	end
-	return 0
+	return math.floor(GetGameTimer())
 end
 
 --- @author DemiAutomatic
