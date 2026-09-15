@@ -401,6 +401,7 @@ local function resumeFamilyTransition()
 	if action == 'error' then
 		Runtime.Notify('error', 'appearance.bodyChangeFailed', { reason = tostring(family) })
 		State.bodyReloading = false
+		Runtime.LiftCover('body_family_transition_error')
 		Runtime.MarkWorldEligibility('body_family_transition_error')
 		if creationStalled() then return enterPristine('body_family_mismatch') end
 		State.settled = false

@@ -374,6 +374,15 @@ function OpxAppearance.Runtime.SwitchBody(family, edit)
 end
 
 --- @author DemiAutomatic
+--- @method OpxAppearance.Runtime.LiftCover
+--- @description Asks open77_shell to take down the cover a body reload put up.
+--- @param origin {string}
+function OpxAppearance.Runtime.LiftCover(origin)
+	Open77.log.info(('lifting the loading cover of the body reload (%s)'):format(origin))
+	TriggerEvent('open77:shell:hide')
+end
+
+--- @author DemiAutomatic
 --- @method OpxAppearance.Runtime.FinishReload
 --- @description Ends a body reload once its new puppet has been reset.
 --- @param origin {string}
@@ -383,6 +392,7 @@ function OpxAppearance.Runtime.FinishReload(origin)
 	reloadResetSeen = false
 	reloadSettleUntilMs = nowMs() + reloadSettleMs()
 	Open77.log.info(('the body reload reached its new puppet (%s)'):format(origin))
+	Runtime.LiftCover(origin)
 	State.EnterWorld()
 	State.playerResetDone = true
 	markWorldEligibility(origin)
