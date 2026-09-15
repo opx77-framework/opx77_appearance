@@ -159,7 +159,7 @@
 --- Why a panel closed.
 ---@alias AppearancePanelReason
 ---| "caller"            `closePanel`, or a row that opens the native editor
----| "player"            Escape, the pause key, or BACK at the top of the list
+---| "player"            Escape, the pause key, BACK at the top of the list, or the panel key
 ---| "appearance_busy"   a native modal came up, and the panel never draws over one
 ---| "character_changed" the live character switched underneath the panel
 ---| "no_character"      the character unloaded

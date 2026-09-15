@@ -20,6 +20,7 @@
     "TriggerClientEvent",
     "SetTimeout",
     "RegisterCommand",
+    "RegisterKeyMapping",
     "GetCurrentResourceName",
     "GetResourceState",
     "GetGameTimer",

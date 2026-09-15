@@ -65,4 +65,7 @@ OpxAppearance.Locale.register('fr', {
 	['appearance.panel.wornNow'] = 'Votre visage enregistré est de retour.',
 	['appearance.panel.alreadyWorn'] = 'Vous le portez déjà.',
 	['appearance.panel.busy'] = 'Pas maintenant.',
+	['appearance.panel.unavailable'] = "Le panneau d'apparence est indisponible.",
+
+	['appearance.key.panel'] = 'Apparence : ouvrir ou fermer le panneau',
 })

@@ -5,6 +5,8 @@
 --- @field PRESENT_BODIES {boolean} Hand every look to other players; false when another resource does.
 --- @field EVENT {string} Client event raised after every decision.
 --- @field NOTIFY {boolean} Raise toasts through opx77_notify; false writes chat lines instead.
+--- @field KEYS {table} Default keys each player can rebind in the pause menu.
+--- @field KEYS.PANEL {string|false} Open or close the panel; false registers no mapping.
 --- @field GAME_BUILDS {table<string, boolean>} Builds a stored face may be read back into.
 --- @field COMMIT_MS {integer} Milliseconds opx77_core has to answer a face or clothing save.
 --- @field SAVE_COOLDOWN_MS {integer} opx77_core's save cooldown in milliseconds, waited out.
@@ -24,6 +26,9 @@ OPX_APPEARANCE_CONFIG = {
 	PRESENT_BODIES = true,
 	EVENT = 'opx77:appearance',
 	NOTIFY = true,
+	KEYS = {
+		PANEL = 'F5',
+	},
 	GAME_BUILDS = { ['2.31'] = true },
 	COMMIT_MS = 20000,
 	SAVE_COOLDOWN_MS = 2000,

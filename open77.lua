@@ -18,6 +18,7 @@ client_script "client/snapshot.lua"
 client_script "client/state.lua"
 client_script "client/main.lua"
 client_script "client/editor.lua"
+client_script "client/keys.lua"
 client_script "client/panel.lua"
 client_script "client/clothing.lua"
 client_script "client/presence.lua"
@@ -33,4 +34,5 @@ permissions {
   "player.equipment.edit",
   "puppets.present",
   "players.life.read",
+  "input.actions",
 }

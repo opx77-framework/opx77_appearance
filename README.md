@@ -52,6 +52,7 @@ character is loaded: until one is, `opx77_core` holds the player unplaced, which
 - One panel every caller shares — a ripperdoc, a clothes store, a menu — instead of each
   shipping its own
 - The panel is `opx77_menu`'s, and optional — a missing menu costs one log line
+- A rebindable key for the panel, F5 by default, or none
 - The body the world loads with at join: the last character played, or a configured default
 - The character's own body family put back in the world once it is selected
 - The join-time readiness announcement, sent only once the player is genuinely playable
@@ -67,7 +68,7 @@ character is loaded: until one is, `opx77_core` holds the player unplaced, which
 
 None. The panel is opened through the `openPanel`
 export and the native editor through `openEditor` — a menu, a ripperdoc prop or any other
-client resource calls them.
+client resource calls them — and the panel through a key as well; see [The key](#the-key).
 
 ## Exports
 
@@ -108,7 +109,9 @@ In `0.10.0` `isOpen`, `openEditor` and `openCreator` no longer raise when the en
 whether a native modal is up: `isOpen` answers `open = true` and the other two
 `appearance_busy`, as the panel already did. A character unloaded while its face was still being
 restored no longer gets that face, or a "could not be restored" toast, afterwards. An
-`opx77_core` stop with a character loaded is handled as that character unloading.
+`opx77_core` stop with a character loaded is handled as that character unloading. The panel
+also opens on a rebindable key owned by this resource, and the manifest asks for
+`input.actions`; no export changed.
 
 `isSettled` is the gate question — is this world entry's face done, and if not what is it
 waiting on. `state` is the diagnostic report behind it. Every export answers a table carrying
@@ -180,6 +183,33 @@ pause key, and on BACK at the top of the list.
 here. `panelClosed` carries a `reason`: `caller`, `player`, `appearance_busy`,
 `character_changed`, `no_character`, `owner_stopped`, `owner_reloaded`, or `menu_closed` when
 `opx77_menu` took the list down for a reason of its own.
+
+### The key
+
+| Mapping id | Name in the pause menu | Default | Does |
+|---|---|---|---|
+| `opx77_appearance.panel` | *Appearance: open or close the panel* | `F5` | opens the panel, or closes it when it is up |
+
+The key is declared with `RegisterKeyMapping`, so the pause menu's key bindings tab lists it
+under the name above — read from the configured locale when the resource starts — and every
+player can rebind it there. It needs the `input.actions` capability, which the manifest declares.
+
+Pressed with the panel down, it opens it with this resource as the owner, on the conditions
+`openPanel` has: a loaded character (otherwise a toast says so), no native mirror on screen
+(otherwise nothing), and `opx77_menu` running (otherwise a toast). Pressed with a panel up —
+this resource's or another caller's — it takes it down with the reason `player`, as Escape
+does. A press while another surface holds the keyboard — the chat box, a form, the pause menu —
+does nothing.
+
+**The panel leads to the face editor**, so the key puts **Edit face** and **Hair only** a key
+away anywhere in the city. A server that keeps the mirror behind a ripperdoc or a salon sets
+`KEYS.PANEL = false`, which registers no mapping, and lets that place call `openPanel`.
+`KEYS.PANEL` sets the default, which a player's own rebind overrides; a value that is neither a
+key name nor `false` is a client log warning and the default. F5 sits clear of the keys the
+rest of the stock resource set takes: E for prompts, I inventory, X stop animation, F2 the
+platform wardrobe, F3 animation picker, F6 and F7 perspective (the platform's perspective resource and the native
+third-person camera — a mapping never hides a key from the game, so either would trigger both),
+F8 HUD, F9 staff menu.
 
 ### One saved look, and why
 
@@ -471,7 +501,7 @@ and saves the first one like any other capture.
 ## Configuration
 
 `config.lua`: the language, the event name, whether to raise toasts, the catalogue builds, the
-deadlines above, the two retry counts, `BOOTSTRAP` and `CLOTHING`:
+deadlines above, the two retry counts, `BOOTSTRAP`, `CLOTHING` and `KEYS`:
 
 | Key | Does | Shipped |
 |---|---|---|
@@ -490,11 +520,12 @@ deadlines above, the two retry counts, `BOOTSTRAP` and `CLOTHING`:
 | `CREATION_WAIT_MS` | how long a character with no stored face waits for something to answer `needsCreation`, in ms; past it this resource says nobody did and lets the player in on the default face. It never opens the editor itself | `15000` |
 | `BOOTSTRAP.ROSTER_WAIT_MS` | how long the join waits for `opx77_core`'s roster, in ms, to load the body of the account's most recently played character; past it `DEFAULT_FAMILY` is loaded. The shell keeps its loading cover up until the bootstrap is spent, so keep it short | `3000` |
 | `BOOTSTRAP.DEFAULT_FAMILY` | `"female"` or `"male"`: the body loaded for an account with no played character, or whose roster did not arrive in time | `"female"` |
+| `KEYS.PANEL` | the panel key's default, which each player can rebind in the pause menu, or `false` to register no mapping — the setting for a server that keeps the mirror behind a ripperdoc. See [The key](#the-key) | `"F5"` |
 
 A `DEFAULT_FAMILY` that is neither `"female"` nor `"male"` is read as `"female"`, with one log
 line; a `ROSTER_WAIT_MS` that is not a number of milliseconds is read as `3000`. A
 `BODY_RELOAD_SETTLE_MS` or `CLOTHING.SAVE_DEBOUNCE_MS` that is not a finite number of
-milliseconds is read as the shipped value. The panel has nothing to configure here: how it is
+milliseconds is read as the shipped value. The panel has nothing to configure here but its key: how it is
 anchored and how wide it is drawn belong to `opx77_menu`.
 
 ## Architecture

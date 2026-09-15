@@ -19,7 +19,9 @@ n'appelle `locale()` contre un catalogue vide.
 Côté client, l'ordre porte : `client/snapshot.lua` crée `OpxAppearance.Snapshot` avant
 `client/state.lua`, dont la garde contre une restauration redondante compare deux visages ;
 `client/main.lua` crée `OpxAppearance.Runtime`, que `client/editor.lua` lit au chargement ;
-`client/panel.lua` vient après l'éditeur, car une ligne du panneau ouvre le miroir ;
+`client/keys.lua` crée `OpxAppearance.Keys` avant `client/panel.lua`, qui enregistre la touche du
+panneau à travers lui ; `client/panel.lua` vient après l'éditeur, car une ligne du panneau ouvre
+le miroir ;
 `client/clothing.lua` vient après `main.lua`, dont il lit l'état réglé, et publie sur
 `OpxAppearance.Clothing` ce que `client/presence.lua` lit au chargement juste après : les listes
 d'emplacements (`SLOTS`, `OUTFIT_SLOTS`), l'enregistrement par défaut (`DEFAULT`, jamais écrit),
@@ -52,6 +54,9 @@ survit.
 - `players.life.read` — l'état de vie du joueur local, en lecture : aucun visage ni éditeur ne
   part sur un joueur derrière l'écran « continuer » ou pendant la réapparition qu'un
   rechargement de corps rejoue.
+- `input.actions` — `client/keys.lua` : `RegisterKeyMapping` pour la touche du panneau, et
+  `Open77.input.isCaptured`, pour qu'une touche tapée dans le chat ou un formulaire n'ouvre rien
+  derrière.
 
 Pas de `webui.*` : la resource ne dessine rien elle-même, le panneau est une liste
 d'`opx77_menu`. Délibérément non demandés : `database.access`, les écritures `players.life.*`,
@@ -290,6 +295,32 @@ perd pas à la seconde suivante. `watch`
 protège `tick` par `pcall` et ne journalise qu'une fois par série d'échecs. `wearStored` lit le
 visage et le personnage avant le `yield` : un changement de personnage pendant l'apply est un autre
 visage.
+
+## La touche du panneau
+
+`OpxAppearance.Keys.Register` déclare la correspondance à l'hôte par `RegisterKeyMapping` depuis
+`onClientResourceStart` de `client/panel.lua` : l'onglet des raccourcis du menu pause la liste sous
+le nom localisé (`appearance.key.panel`) et le joueur la réassigne là. Rien ici ne lit une touche
+soi-même. L'id `opx77_appearance.panel` est stable, parce qu'une réassignation est stockée sous lui.
+
+- Deux formes de réponse sont documentées : le guide des touches rend `true, key`, la référence
+  d'API la touche seule. Les deux sont un enregistrement ; `false|nil, reason` est un refus, qui
+  coûte une ligne de log, les exports restant disponibles. L'appel est sous `pcall` : un client
+  dépourvu de `RegisterKeyMapping` n'est qu'un refus de plus, sans test de présence préalable.
+- Un appui pendant qu'une autre surface tient le clavier (le composeur du chat, un formulaire
+  opx77_input, le menu pause) ne fait rien (`captured`) : une touche tapée dedans ne doit pas agir
+  derrière.
+- `OpxAppearance.Keys.Setting` accepte un nom de touche ou `false` ; toute autre valeur est le
+  défaut `F5`, annoncé une fois. `false` n'enregistre rien : le panneau mène au miroir, et un
+  serveur qui garde le miroir derrière un ripperdoc ne veut pas de raccourci.
+- `pressed` suit `openPanel` : un panneau levé, quel que soit son propriétaire, est retiré avec la
+  raison `player`, comme Escape ; sinon rien sous une modale native, un toast sans personnage, et
+  un toast quand `Panel.Open` refuse (`opx77_menu` arrêté). Le panneau ouvert par la touche
+  appartient à cette resource : son balayage de propriétaire ne le retire donc jamais, et
+  `openPanel` d'une autre resource répond `panel_busy` tant qu'il est levé.
+- Le défaut est `F5` et pas `F7` (le choix de la première version) : F6 et F7 sont les touches de
+  perspective de la plateforme, et une correspondance ne cache jamais la touche au jeu, donc F7
+  ouvrirait le panneau **et** changerait de caméra. Aucune resource OPX//77 ne prend F5.
 
 ## Les vêtements
 
