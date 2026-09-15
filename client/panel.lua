@@ -281,18 +281,6 @@ function OpxAppearance.Panel.Close(reason)
 end
 
 --- @author DemiAutomatic
---- @method menuClosed
---- @description Records that opx77_menu took the list down by itself.
---- @param reason {string|nil}
-local function menuClosed(reason)
-	if owner == nil then return end
-	session = session + 1
-	owner, ownerGeneration, handle = nil, nil, nil
-	Runtime.Publish({ ok = true, event = 'panelClosed', citizenId = State.citizenId,
-		reason = CLOSED_BY_PLAYER[reason] and 'player' or 'menu_closed' })
-end
-
---- @author DemiAutomatic
 --- @method tick
 --- @description Closes the panel under a native modal or a gone owner.
 --- @param atMs {integer}
@@ -433,7 +421,10 @@ end
 AddEventHandler(EVENT, function(payload)
 	if type(payload) ~= 'table' or payload.menu ~= MENU_ID then return end
 	if payload.owner ~= RESOURCE then return end
-	if payload.action == 'close' then return menuClosed(payload.reason) end
+	if payload.action == 'close' then
+		takeDown(CLOSED_BY_PLAYER[payload.reason] and 'player' or 'menu_closed')
+		return
+	end
 	if payload.action ~= 'select' or payload.handle ~= handle then return end
 	local id = payload.itemId
 	if id == 'wear' then return wearStored() end

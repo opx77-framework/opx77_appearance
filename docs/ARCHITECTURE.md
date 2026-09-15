@@ -370,7 +370,7 @@ visage, sans les métadonnées d'éditeur que le codec de valeurs du runtime ne 
 
 ## Clés résolues à l'exécution
 
-- `Locale.Exists(code)` dans `refused` (`client/editor.lua`) affiche un refus de `saveAppearance`
+- `Locale.Exists(code)` dans le gestionnaire `opx77:client:refused` de `client/editor.lua` affiche un refus de `saveAppearance`
   dans la langue du joueur : `appearance.invalid`, `appearance.tooLarge`, `error.badRequest`,
   `error.notLoggedIn`, `error.tooFast`, `error.unavailable`. Le core mappe une panne de stockage
   sur `error.unavailable` avant de l'envoyer.

@@ -57,15 +57,6 @@ local function rollback(reason)
 end
 
 --- @author DemiAutomatic
---- @method refused
---- @description Tells the player why a save was refused, translated when possible.
---- @param code {string}
-local function refused(code)
-	if Locale.Exists(code) then return Runtime.Notify('error', code) end
-	Runtime.Notify('error', 'appearance.saveFailed', { reason = code })
-end
-
---- @author DemiAutomatic
 --- @method send
 --- @description Sends a captured face to opx77_core once its cooldown has passed.
 --- @param payload {table}
@@ -379,7 +370,8 @@ AddEventHandler('opx77:client:refused', function(code, _, operation)
 	if pending.kind == 'create' then return enterPristine(code) end
 	Runtime.Publish({ ok = false, event = 'saved', error = code, citizenId = State.citizenId })
 	rollback(code)
-	refused(code)
+	if Locale.Exists(code) then return Runtime.Notify('error', code) end
+	Runtime.Notify('error', 'appearance.saveFailed', { reason = code })
 end)
 
 --- @author DemiAutomatic
