@@ -24,6 +24,11 @@ local WATCH_MS = 200
 local SAVE_OPERATION = 'saveAppearance'
 
 --- @author DemiAutomatic
+--- @type {integer}
+--- @description When the last captured face went out, in milliseconds.
+local lastSaveAtMs = 0
+
+--- @author DemiAutomatic
 --- @type {table<string, boolean>}
 --- @description Every code opx77_core answers a face save with.
 local REFUSALS = {
@@ -69,10 +74,10 @@ end
 local function send(payload, kind, onNotSent)
 	State.commit = { kind = kind, deadlineMs = 0 }
 	CreateThread(function()
-		local idle = Config.SAVE_COOLDOWN_MS - (Runtime.NowMs() - State.lastSaveAtMs)
+		local idle = Config.SAVE_COOLDOWN_MS - (Runtime.NowMs() - lastSaveAtMs)
 		if idle > 0 then Wait(idle) end
 		if State.commit == nil then return end
-		State.lastSaveAtMs = Runtime.NowMs()
+		lastSaveAtMs = Runtime.NowMs()
 		State.commit.deadlineMs = Runtime.NowMs() + Config.COMMIT_MS
 		local sent, reason = TriggerServerEvent('opx77:server:saveAppearance',
 			{ snapshot = payload })

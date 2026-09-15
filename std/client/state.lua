@@ -66,10 +66,6 @@ OpxAppearance.State.creatorUp = false
 ---@type { kind: "edit"|"create", deadlineMs: integer }|nil
 OpxAppearance.State.commit = nil
 
---- When the last captured face went out, so the core's cooldown is waited out.
----@type integer
-OpxAppearance.State.lastSaveAtMs = 0
-
 --- Whether this character was told its stored face is from another build.
 ---@type boolean
 OpxAppearance.State.buildWarned = false
@@ -78,18 +74,9 @@ OpxAppearance.State.buildWarned = false
 ---@type integer
 OpxAppearance.State.familyAttempts = 0
 
---- The body family this client last loaded the world with.
----@type BodyFamily|nil
-OpxAppearance.State.bodyFamily = nil
-
---- A body reload has not reached its new puppet's reset yet, whether the host's reset projection
---- has left `complete` since, and until when a finished reload holds modals back.
+--- A body reload has not reached its new puppet's reset yet.
 ---@type boolean
 OpxAppearance.State.bodyReloading = false
----@type boolean
-OpxAppearance.State.reloadResetSeen = false
----@type integer
-OpxAppearance.State.reloadSettleUntilMs = 0
 
 --- This character's creation ended without a face: `openCreator` refuses until it changes.
 ---@type boolean
@@ -100,13 +87,6 @@ OpxAppearance.State.creationRefused = false
 OpxAppearance.State.creationAskedAtMs = 0
 ---@type boolean
 OpxAppearance.State.creationWarned = false
-
---- Whether this client spent the one-shot character bootstrap, and whether the join-time roster
---- wait that picks its body is running.
----@type boolean
-OpxAppearance.State.bootstrapResolved = false
----@type boolean
-OpxAppearance.State.bootstrapPicking = false
 
 --- Starts a restore generation and answers the token its thread carries; clears the queued-apply
 --- confirmations.

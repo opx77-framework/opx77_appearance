@@ -57,6 +57,31 @@ local RELOAD_SETTLE_MS = 10000
 local LIFE_OPEN = { alive = true, recovering = true }
 
 --- @author DemiAutomatic
+--- @type {string|nil}
+--- @description The body family this client last loaded the world with.
+local loadedFamily = nil
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description The host's reset projection left complete since the switch.
+local reloadResetSeen = false
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Until when a finished reload holds modals back, 0 when none.
+local reloadSettleUntilMs = 0
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description This client spent the one-shot character bootstrap.
+local bootstrapResolved = false
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description The join-time roster wait that picks the bootstrap body runs.
+local bootstrapPicking = false
+
+--- @author DemiAutomatic
 --- @type {integer}
 --- @description Last finite clock reading in milliseconds, held across failed reads.
 local lastMs = 0
@@ -208,11 +233,11 @@ function OpxAppearance.Runtime.Faceable()
 	if reset ~= nil and reset ~= 'complete' then return false end
 	local life = lifePhase()
 	if life == false or (life ~= nil and not LIFE_OPEN[life]) then return false end
-	if State.reloadSettleUntilMs ~= 0 then
-		if life ~= nil and life ~= 'alive' and nowMs() < State.reloadSettleUntilMs then
+	if reloadSettleUntilMs ~= 0 then
+		if life ~= nil and life ~= 'alive' and nowMs() < reloadSettleUntilMs then
 			return false
 		end
-		State.reloadSettleUntilMs = 0
+		reloadSettleUntilMs = 0
 	end
 	return true
 end
@@ -246,7 +271,7 @@ function OpxAppearance.Runtime.BodyFamily()
 	if read and type(body) == 'table' and Snapshot.IsFamily(body.family) then
 		return body.family
 	end
-	if State.bodyFamily ~= nil then return State.bodyFamily end
+	if loadedFamily ~= nil then return loadedFamily end
 	local ok, bootstrap = pcall(Open77.session.characterBootstrap)
 	if ok and type(bootstrap) == 'table' and bootstrap.phase == 'ready' and
 		Snapshot.IsFamily(bootstrap.family) then
@@ -265,10 +290,10 @@ function OpxAppearance.Runtime.SwitchBody(family, edit)
 	local called, switched, reason = pcall(Open77.appearance.switchBodyFamily, family, edit)
 	if not called then return nil, tostring(switched) end
 	if switched then
-		State.bodyFamily = family
+		loadedFamily = family
 		State.bodyReloading = true
-		State.reloadResetSeen = false
-		State.reloadSettleUntilMs = 0
+		reloadResetSeen = false
+		reloadSettleUntilMs = 0
 		State.Undress()
 		if OpxAppearance.Presence then OpxAppearance.Presence.Withdraw() end
 		Open77.log.info(('the %s body is reloading (%s)'):format(family,
@@ -276,7 +301,7 @@ function OpxAppearance.Runtime.SwitchBody(family, edit)
 		return 'switching'
 	end
 	if tostring(reason) == 'body_family_already_active' then
-		State.bodyFamily = family
+		loadedFamily = family
 		return 'active'
 	end
 	return nil, tostring(reason or 'body_family_switch_failed')
@@ -289,8 +314,8 @@ end
 function OpxAppearance.Runtime.FinishReload(origin)
 	if not State.bodyReloading then return end
 	State.bodyReloading = false
-	State.reloadResetSeen = false
-	State.reloadSettleUntilMs = nowMs() + reloadSettleMs()
+	reloadResetSeen = false
+	reloadSettleUntilMs = nowMs() + reloadSettleMs()
 	Open77.log.info(('the body reload reached its new puppet (%s)'):format(origin))
 	State.EnterWorld()
 	State.playerResetDone = true
@@ -306,8 +331,8 @@ function OpxAppearance.Runtime.WatchReload()
 	local reset = playerResetPhase()
 	if reset == nil then return end
 	if reset ~= 'complete' then
-		State.reloadResetSeen = true
-	elseif State.reloadResetSeen then
+		reloadResetSeen = true
+	elseif reloadResetSeen then
 		Runtime.FinishReload('reset_projection')
 	end
 end
@@ -482,9 +507,9 @@ end
 --- @param family {any}
 --- @returns {boolean}
 function OpxAppearance.Runtime.ResolveBootstrap(family)
-	if State.bootstrapResolved then return true end
+	if bootstrapResolved then return true end
 	if bootstrapPhase() == 'ready' then
-		State.bootstrapResolved = true
+		bootstrapResolved = true
 		return true
 	end
 	if not Snapshot.IsFamily(family) then
@@ -497,8 +522,8 @@ function OpxAppearance.Runtime.ResolveBootstrap(family)
 		Runtime.Notify('error', 'appearance.bootstrapFailed', { reason = tostring(reason) })
 		return false
 	end
-	State.bootstrapResolved = true
-	State.bodyFamily = family
+	bootstrapResolved = true
+	loadedFamily = family
 	Open77.log.info(('character bootstrap resolved as %s'):format(family))
 	return true
 end
@@ -586,20 +611,20 @@ end
 --- @description Spends the join bootstrap on the last played body or the default.
 --- @param origin {string}
 function OpxAppearance.Runtime.BeginBootstrap(origin)
-	if State.bootstrapResolved or State.bootstrapPicking then return end
+	if bootstrapResolved or bootstrapPicking then return end
 	if bootstrapPhase() ~= 'waiting' then return end
-	State.bootstrapPicking = true
+	bootstrapPicking = true
 
 	CreateThread(function()
 		local deadline = nowMs() + rosterWaitMs()
 		local roster
 		while roster == nil and nowMs() < deadline do
-			if State.bootstrapResolved or bootstrapPhase() ~= 'waiting' then break end
+			if bootstrapResolved or bootstrapPhase() ~= 'waiting' then break end
 			roster = heldRoster()
 			if roster == nil then Wait(ROSTER_POLL_MS) end
 		end
-		State.bootstrapPicking = false
-		if State.bootstrapResolved or bootstrapPhase() ~= 'waiting' then return end
+		bootstrapPicking = false
+		if bootstrapResolved or bootstrapPhase() ~= 'waiting' then return end
 
 		local family = roster ~= nil and lastPlayedFamily(roster) or nil
 		local why = family ~= nil and 'the last character played' or

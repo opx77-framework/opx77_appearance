@@ -105,11 +105,6 @@ OpxAppearance.State.creatorUp = false
 OpxAppearance.State.commit = nil
 
 --- @author DemiAutomatic
---- @type {integer}
---- @description When the last captured face went out, in milliseconds.
-OpxAppearance.State.lastSaveAtMs = 0
-
---- @author DemiAutomatic
 --- @type {boolean}
 --- @description This character was told its stored face is from another build.
 OpxAppearance.State.buildWarned = false
@@ -120,24 +115,9 @@ OpxAppearance.State.buildWarned = false
 OpxAppearance.State.familyAttempts = 0
 
 --- @author DemiAutomatic
---- @type {string|nil}
---- @description The body family this client last loaded the world with.
-OpxAppearance.State.bodyFamily = nil
-
---- @author DemiAutomatic
 --- @type {boolean}
 --- @description A body reload has not reached its new puppet's reset yet.
 OpxAppearance.State.bodyReloading = false
-
---- @author DemiAutomatic
---- @type {boolean}
---- @description The host's reset projection left complete since the switch.
-OpxAppearance.State.reloadResetSeen = false
-
---- @author DemiAutomatic
---- @type {integer}
---- @description Until when a finished reload holds modals back, 0 when none.
-OpxAppearance.State.reloadSettleUntilMs = 0
 
 --- @author DemiAutomatic
 --- @type {boolean}
@@ -153,16 +133,6 @@ OpxAppearance.State.creationAskedAtMs = 0
 --- @type {boolean}
 --- @description The wait for an answer to needsCreation ran out.
 OpxAppearance.State.creationWarned = false
-
---- @author DemiAutomatic
---- @type {boolean}
---- @description This client spent the one-shot character bootstrap.
-OpxAppearance.State.bootstrapResolved = false
-
---- @author DemiAutomatic
---- @type {boolean}
---- @description The join-time roster wait that picks the bootstrap body runs.
-OpxAppearance.State.bootstrapPicking = false
 
 --- @author DemiAutomatic
 --- @method OpxAppearance.State.NextRestore
@@ -256,7 +226,6 @@ function OpxAppearance.State.Unload()
 	State.creationWarned = false
 	State.familyAttempts = 0
 	State.buildWarned = false
-	State.settled = false
 	State.Undress()
 	State.EnterWorld()
 end
