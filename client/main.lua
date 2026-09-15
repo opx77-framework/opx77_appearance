@@ -28,7 +28,7 @@ local NOTIFY = 'opx77_notify'
 
 --- @author DemiAutomatic
 --- @type {integer}
---- @description Milliseconds between two looks at the world and the reload.
+--- @description Milliseconds between two looks at a world a face may go on.
 local WATCH_MS = 200
 
 --- @author DemiAutomatic
@@ -806,7 +806,7 @@ end)
 
 --- @author DemiAutomatic
 --- @event onClientResourceStart
---- @description Re-establishes the world, bootstrap and character, then starts the watch.
+--- @description Re-establishes the world, the bootstrap and the character.
 --- @param name {string}
 AddEventHandler('onClientResourceStart', function(name)
 	if name ~= RESOURCE then return end
@@ -819,16 +819,6 @@ AddEventHandler('onClientResourceStart', function(name)
 	markWorldEligibility('resourceStart')
 	Runtime.BeginBootstrap('resourceStart')
 	catchUp()
-
-	CreateThread(function()
-		while true do
-			Wait(WATCH_MS)
-			local watched, reason = pcall(Runtime.WatchReload)
-			if not watched then Open77.log.error('reload watch: ' .. tostring(reason)) end
-			local ok, failure = pcall(Runtime.Announce)
-			if not ok then Open77.log.error('announce worker: ' .. tostring(failure)) end
-		end
-	end)
 end)
 
 --- @author DemiAutomatic

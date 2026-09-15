@@ -54,7 +54,7 @@ local OFFICIAL = 'open77_appearance'
 
 --- @author DemiAutomatic
 --- @type {integer}
---- @description Milliseconds between two reads of the look.
+--- @description Milliseconds between two passes over the clothing and the look.
 local CHECK_MS = 1000
 
 --- @author DemiAutomatic
@@ -336,7 +336,7 @@ AddEventHandler('opx77:client:onPlayerUnloaded', Presence.Withdraw)
 
 --- @author DemiAutomatic
 --- @event onClientResourceStart
---- @description Starts presence and its once-a-second check.
+--- @description Starts presence over when this resource starts.
 --- @param name {string}
 AddEventHandler('onClientResourceStart', function(name)
 	if name ~= GetCurrentResourceName() then return end
@@ -344,11 +344,14 @@ AddEventHandler('onClientResourceStart', function(name)
 		Open77.log.warn(OFFICIAL .. ' is running and hands looks out itself; this resource does not')
 	end
 	Presence.Renew()
-	CreateThread(function()
-		while true do
-			Wait(CHECK_MS)
-			local ran, failure = pcall(Presence.Check)
-			if not ran then Open77.log.error('presence check: ' .. tostring(failure)) end
-		end
-	end)
+end)
+
+CreateThread(function()
+	while true do
+		Wait(CHECK_MS)
+		local ok, failure = pcall(Clothing.Check)
+		if not ok then Open77.log.error('clothing worker: ' .. tostring(failure)) end
+		local ran, reason = pcall(Presence.Check)
+		if not ran then Open77.log.error('presence check: ' .. tostring(reason)) end
+	end
 end)

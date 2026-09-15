@@ -28,11 +28,6 @@ local OFFICIAL = 'open77_appearance'
 
 --- @author DemiAutomatic
 --- @type {integer}
---- @description Milliseconds between two looks at what the puppet wears.
-local CHECK_MS = 1000
-
---- @author DemiAutomatic
---- @type {integer}
 --- @description Put-ons before a world entry gives up on the record.
 local RESTORE_ATTEMPTS = 5
 
@@ -612,12 +607,4 @@ AddEventHandler('opx77:client:refused', function(code, _, operation)
 	if code == 'error.unavailable' then return strike(failed, code) end
 	Open77.log.warn(('clothing save refused: %s'):format(code))
 	publish('clothingSaved', false, code)
-end)
-
-CreateThread(function()
-	while true do
-		Wait(CHECK_MS)
-		local ok, failure = pcall(Clothing.Check)
-		if not ok then Open77.log.error('clothing worker: ' .. tostring(failure)) end
-	end
 end)

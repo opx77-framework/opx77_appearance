@@ -15,7 +15,7 @@ local Editor = OpxAppearance.Editor
 
 --- @author DemiAutomatic
 --- @type {integer}
---- @description Milliseconds between two passes of the modal worker.
+--- @description Milliseconds between two passes of the modal, reload and announcement worker.
 local WATCH_MS = 200
 
 --- @author DemiAutomatic
@@ -459,5 +459,9 @@ CreateThread(function()
 		Wait(WATCH_MS)
 		local ok, failure = pcall(watch)
 		if not ok then Open77.log.error('appearance worker: ' .. tostring(failure)) end
+		local watched, reason = pcall(Runtime.WatchReload)
+		if not watched then Open77.log.error('reload watch: ' .. tostring(reason)) end
+		local announced, problem = pcall(Runtime.Announce)
+		if not announced then Open77.log.error('announce worker: ' .. tostring(problem)) end
 	end
 end)
