@@ -7,6 +7,7 @@ OpxAppearance = OpxAppearance or {}
 local Config = OPX_APPEARANCE_CONFIG
 local State = OpxAppearance.State
 local Runtime = OpxAppearance.Runtime
+local Clothing = OpxAppearance.Clothing
 
 OpxAppearance.Presence = {}
 local Presence = OpxAppearance.Presence
@@ -61,23 +62,13 @@ local CHECK_MS = 1000
 --- @description Milliseconds a publication or replay request waits for its answer.
 local RETRY_MS = 3000
 
---- @author DemiAutomatic
---- @type {string[]}
---- @description The nine equipment slots of a look.
-local SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit',
-	'UnderwearTop', 'UnderwearBottom' }
-
---- @author DemiAutomatic
---- @type {string[]}
---- @description The seven visible slots an outfit overrides.
-local OUTFIT_SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit' }
+local SLOTS = Clothing.SLOTS
+local OUTFIT_SLOTS = Clothing.OUTFIT_SLOTS
 
 --- @author DemiAutomatic
 --- @type {table<string, string|false>}
---- @description The equipment the platform states for a character without a record.
-local DEFAULT_EQUIPMENT = { Head = false, Face = false, InnerChest = false, OuterChest = false,
-	Legs = false, Feet = false, Outfit = false, UnderwearTop = false,
-	UnderwearBottom = 'Items.Underwear_Basic_01_Bottom' }
+--- @description The equipment observers get when the registry cannot be read.
+local DEFAULT_EQUIPMENT = Clothing.DEFAULT.equipment
 
 --- @author DemiAutomatic
 --- @type {table|nil}
@@ -120,24 +111,6 @@ local function enabled()
 end
 
 --- @author DemiAutomatic
---- @method same
---- @description Whether two plain values are equal, tables by content.
---- @param left {any}
---- @param right {any}
---- @returns {boolean}
-local function same(left, right)
-	if type(left) ~= type(right) then return false end
-	if type(left) ~= 'table' then return left == right end
-	for key, value in pairs(left) do
-		if not same(value, right[key]) then return false end
-	end
-	for key in pairs(right) do
-		if left[key] == nil then return false end
-	end
-	return true
-end
-
---- @author DemiAutomatic
 --- @method wearable
 --- @description Answers an item this body can wear, or false.
 --- @param record {any}
@@ -151,9 +124,7 @@ local function wearable(record, family)
 	end
 	local read, info = pcall(equipment.info, record)
 	if not read or type(info) ~= 'table' then return record end
-	if family == 'male' and info.supportsMale == false then return false end
-	if family == 'female' and info.supportsFemale == false then return false end
-	return record
+	return Clothing.Fits(info, family) and record or false
 end
 
 --- @author DemiAutomatic
@@ -210,8 +181,7 @@ local function presentable()
 		State.AppearanceSettled() and Runtime.InGameplay()) then
 		return false
 	end
-	local clothing = OpxAppearance.Clothing
-	return clothing == nil or clothing.Settled()
+	return Clothing.Settled()
 end
 
 --- @author DemiAutomatic
@@ -241,7 +211,7 @@ local function publish()
 	local look = { body = body, equipment = equipment, wardrobe = wardrobe }
 
 	local now = Runtime.NowMs()
-	if sent ~= nil and same(look, sent) and
+	if sent ~= nil and Clothing.Same(look, sent) and
 		(acknowledged == sentSequence or now - sentAtMs < RETRY_MS) then
 		return
 	end

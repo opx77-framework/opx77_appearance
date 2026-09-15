@@ -58,14 +58,16 @@ local SAVE_DEBOUNCE_MS = 2000
 
 --- @author DemiAutomatic
 --- @type {string[]}
---- @description The nine equipment slots of a record.
-local SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit',
+--- @description The nine equipment slots of a record and of a look.
+OpxAppearance.Clothing.SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit',
 	'UnderwearTop', 'UnderwearBottom' }
+local SLOTS = Clothing.SLOTS
 
 --- @author DemiAutomatic
 --- @type {string[]}
 --- @description The seven visible slots an outfit overrides.
-local OUTFIT_SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit' }
+OpxAppearance.Clothing.OUTFIT_SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit' }
+local OUTFIT_SLOTS = Clothing.OUTFIT_SLOTS
 
 --- @author DemiAutomatic
 --- @type {integer}
@@ -74,14 +76,15 @@ local OUTFITS = 7
 
 --- @author DemiAutomatic
 --- @type {AppearanceClothing}
---- @description The record the platform states for a character without one.
-local DEFAULT = {
+--- @description The record the platform states for a character without one, never written.
+OpxAppearance.Clothing.DEFAULT = {
 	schemaVersion = 1,
 	equipment = { Head = false, Face = false, InnerChest = false, OuterChest = false,
 		Legs = false, Feet = false, Outfit = false, UnderwearTop = false,
 		UnderwearBottom = 'Items.Underwear_Basic_01_Bottom' },
 	wardrobe = { outfits = {} },
 }
+local DEFAULT = Clothing.DEFAULT
 
 --- @author DemiAutomatic
 --- @type {string|nil}
@@ -187,28 +190,34 @@ OpxAppearance.Clothing.Normalize = normalize
 
 --- @author DemiAutomatic
 --- @method same
---- @description Whether two normalized records are the same clothing.
---- @param left {table|nil}
---- @param right {table|nil}
+--- @description Whether two plain values are equal, tables by content.
+--- @param left {any}
+--- @param right {any}
 --- @returns {boolean}
 local function same(left, right)
-	if type(left) ~= 'table' or type(right) ~= 'table' then return false end
-	for _, slot in ipairs(SLOTS) do
-		if left.equipment[slot] ~= right.equipment[slot] then return false end
+	if type(left) ~= type(right) then return false end
+	if type(left) ~= 'table' then return left == right end
+	for key, value in pairs(left) do
+		if not same(value, right[key]) then return false end
 	end
-	if left.wardrobe.active ~= right.wardrobe.active then return false end
-	for index = 0, OUTFITS - 1 do
-		local a, b = left.wardrobe.outfits[tostring(index)], right.wardrobe.outfits[tostring(index)]
-		if (a == nil) ~= (b == nil) then return false end
-		if a ~= nil then
-			for _, slot in ipairs(OUTFIT_SLOTS) do
-				if a[slot] ~= b[slot] then return false end
-			end
-		end
+	for key in pairs(right) do
+		if left[key] == nil then return false end
 	end
 	return true
 end
 OpxAppearance.Clothing.Same = same
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Fits
+--- @description Whether equipment info allows a body family to wear the item.
+--- @param info {table}
+--- @param family {string|nil}
+--- @returns {boolean}
+function OpxAppearance.Clothing.Fits(info, family)
+	if family == 'male' and info.supportsMale == false then return false end
+	if family == 'female' and info.supportsFemale == false then return false end
+	return true
+end
 
 --- @author DemiAutomatic
 --- @method fit
@@ -222,9 +231,7 @@ local function fit(record, family, lookups)
 	if not lookups then return record end
 	local read, info = pcall(Open77.equipment.info, record)
 	if not read then return record end
-	if type(info) ~= 'table' then return false end
-	if family == 'male' and info.supportsMale == false then return false end
-	if family == 'female' and info.supportsFemale == false then return false end
+	if type(info) ~= 'table' or not Clothing.Fits(info, family) then return false end
 	return record
 end
 
