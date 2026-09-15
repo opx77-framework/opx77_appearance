@@ -412,14 +412,6 @@ AddEventHandler('onPlayerDisconnected', function(playerId)
 end)
 
 --- @author DemiAutomatic
---- @event playerDropped
---- @description Forgets a dropped player.
-AddEventHandler('playerDropped', function()
-	local player = tonumber(source)
-	if player then forget(player) end
-end)
-
---- @author DemiAutomatic
 --- @event onResourceStart
 --- @description Asks every client to publish and ask again after a start.
 --- @param name {string}
