@@ -1,52 +1,47 @@
--- Configuration for opx77_appearance, shipped to every client. It has no server half.
+--- @author DemiAutomatic
+--- @file config.lua
+--- @description Operator configuration for faces, clothing, looks and the join bootstrap.
+--- @field LOCALE {string} Catalogue code player-facing text is read from.
+--- @field PRESENT_BODIES {boolean} Hand every look to other players; false when another resource does.
+--- @field EVENT {string} Client event raised after every decision.
+--- @field NOTIFY {boolean} Raise toasts through opx77_notify; false writes chat lines instead.
+--- @field KEYS {table} Default keys each player can rebind in the pause menu.
+--- @field KEYS.PANEL {string|false} Open or close the panel; false registers no mapping.
+--- @field GAME_BUILDS {table<string, boolean>} Builds a stored face may be read back into.
+--- @field COMMIT_MS {integer} Milliseconds opx77_core has to answer a face or clothing save.
+--- @field SAVE_COOLDOWN_MS {integer} opx77_core's save cooldown in milliseconds, waited out.
+--- @field CLOTHING {table} What the character wears, stored by opx77_core.
+--- @field CLOTHING.PERSIST {boolean} false leaves clothing alone: nothing put on or saved.
+--- @field CLOTHING.SAVE_DEBOUNCE_MS {integer} Milliseconds a change holds before it is saved.
+--- @field RESTORE_RETRIES {integer} Re-dispatches of a restore the mirror aborted.
+--- @field FAMILY_RETRIES {integer} Body reloads and reopened creation editors per character.
+--- @field BODY_RELOAD_SETTLE_MS {integer} Milliseconds waited for the respawn after a body reload.
+--- @field CREATION_WAIT_MS {integer} Milliseconds needsCreation waits for openCreator.
+--- @field BOOTSTRAP {table} The body the world loads with at join.
+--- @field BOOTSTRAP.ROSTER_WAIT_MS {integer} Milliseconds waited for opx77_core's roster.
+--- @field BOOTSTRAP.DEFAULT_FAMILY {string} 'female' or 'male'; anything else reads 'female'.
 
 OPX_APPEARANCE_CONFIG = {
-  -- Language for player-facing text. Server logs stay in English.
-  LOCALE = "en",
-
-  -- Client event raised after every decision this resource reaches.
-  EVENT = "opx77:appearance",
-
-  -- Whether to raise toasts through opx77_notify.
-  NOTIFY = true,
-
-  -- Which catalogue builds a stored snapshot may be read back into.
-  GAME_BUILDS = { ["2.31"] = true },
-
-  -- How long opx77_core has to answer a captured face before it is given up on, in ms.
-  COMMIT_MS = 20000,
-
-  -- opx77_core's own cooldown on `appearance.request`. A commit inside it is held back rather
-  -- than refused.
-  SAVE_COOLDOWN_MS = 2000,
-
-  -- Re-dispatches of a bootstrap restore the native aborted before confirming it.
-  RESTORE_RETRIES = 3,
-
-  -- Body-family attempts per character: world reloads onto `charInfo.gender`, and creation
-  -- editors reopened after coming back on the other body. Past it the player keeps the body
-  -- they are on.
-  FAMILY_RETRIES = 2,
-
-  -- After a body reload's new puppet has been through its reset, how long a face and the
-  -- creation editor may wait for the respawn the platform replays onto it to end (life phase
-  -- "alive"), in ms. A phase that reads "alive" sooner ends the wait sooner.
-  BODY_RELOAD_SETTLE_MS = 10000,
-
-  -- How long a character with no stored face waits for something to answer `needsCreation`,
-  -- in ms. Past it this resource says nobody did and lets the player in on the default face.
-  -- It never opens the editor itself.
-  CREATION_WAIT_MS = 15000,
-
-  -- The body the world first loads with, chosen at join before any character is. The shell
-  -- keeps its loading cover up until this is spent, so it is never waited on for long.
-  BOOTSTRAP = {
-    -- How long to wait for opx77_core's roster, in ms, to load the body of the account's most
-    -- recently played character. Past it DEFAULT_FAMILY is loaded.
-    ROSTER_WAIT_MS = 3000,
-
-    -- "female" or "male": the body loaded for an account with no played character, or whose
-    -- roster did not arrive in time. Anything else is read as "female".
-    DEFAULT_FAMILY = "female",
-  },
+	LOCALE = 'en',
+	PRESENT_BODIES = true,
+	EVENT = 'opx77:appearance',
+	NOTIFY = true,
+	KEYS = {
+		PANEL = 'F5',
+	},
+	GAME_BUILDS = { ['2.31'] = true },
+	COMMIT_MS = 20000,
+	SAVE_COOLDOWN_MS = 2000,
+	CLOTHING = {
+		PERSIST = true,
+		SAVE_DEBOUNCE_MS = 2000,
+	},
+	RESTORE_RETRIES = 3,
+	FAMILY_RETRIES = 2,
+	BODY_RELOAD_SETTLE_MS = 10000,
+	CREATION_WAIT_MS = 15000,
+	BOOTSTRAP = {
+		ROSTER_WAIT_MS = 3000,
+		DEFAULT_FAMILY = 'female',
+	},
 }

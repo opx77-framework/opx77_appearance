@@ -1,244 +1,243 @@
---- The public export surface: reading, applying, storing and editing the live character's
---- face. Every call answers a table carrying `ok`, never raises, and is client-side only.
+--- @author DemiAutomatic
+--- @file client/exports.lua
+--- @description The twelve client exports, each answering a table carrying ok.
 
-local State = OpxAppearance.state
-local Snapshot = OpxAppearance.snapshot
-local Runtime = OpxAppearance.runtime
-local Editor = OpxAppearance.editor
-local Panel = OpxAppearance.panel
+local State = OpxAppearance.State
+local Snapshot = OpxAppearance.Snapshot
+local Runtime = OpxAppearance.Runtime
+local Editor = OpxAppearance.Editor
+local Panel = OpxAppearance.Panel
 
----@param ok boolean
----@param values table|nil
----@return table
+--- @author DemiAutomatic
+--- @method response
+--- @description Stamps ok onto an export answer.
+--- @param ok {boolean}
+--- @param values {table|nil}
+--- @returns {table}
 local function response(ok, values)
-  values = values or {}
-  values.ok = ok == true
-  return values
+	values = values or {}
+	values.ok = ok == true
+	return values
 end
 
---- Who is calling, from the host rather than an argument. Nothing inside this VM should be
---- reaching the public surface, so a call with no invoking resource went somewhere by mistake.
----@return string|nil
+--- @author DemiAutomatic
+--- @method caller
+--- @description Answers the invoking resource's name when it is a valid one.
+--- @returns {string|nil}
 local function caller()
-  local owner = GetInvokingResource()
-  if type(owner) ~= "string" or owner == "" or #owner > 64 or
-    owner:match("^[%w_%-%.]+$") == nil then
-    return nil
-  end
-  return owner
+	local owner = GetInvokingResource()
+	if type(owner) ~= 'string' or owner == '' or #owner > 64 or
+		owner:match('^[%w_%-%.]+$') == nil then
+		return nil
+	end
+	return owner
 end
 
---- The refusal every export starts with.
----@return table|nil
+--- @author DemiAutomatic
+--- @method nobody
+--- @description Answers the refusal for a call with no invoking resource.
+--- @returns {table|nil}
 local function nobody()
-  if caller() == nil then return response(false, { error = "export_call_required" }) end
-  return nil
+	if caller() == nil then return response(false, { error = 'export_call_required' }) end
+	return nil
 end
 
---- Which generation of the caller's code is asking, so a reloaded caller's panel goes away
---- with it. nil when the host will not say.
----@return integer|nil
+--- @author DemiAutomatic
+--- @method generation
+--- @description Answers the invoking resource's code generation, nil when unknown.
+--- @returns {integer|nil}
 local function generation()
-  local value = GetInvokingResourceGeneration()
-  return type(value) == "number" and value or nil
+	local value = GetInvokingResourceGeneration()
+	return type(value) == 'number' and value or nil
 end
 
--- ---------------------------------------------------------------------------
--- Reading a face
--- ---------------------------------------------------------------------------
-
---- The stored face for the live character, as `PlayerData.appearance` carries it. It is what
---- opx77_core holds, not what the puppet is wearing: `captureSkin` answers that.
----@return AppearanceSkin
-exports("getSkin", function()
-  local gone = nobody()
-  if gone then return gone end
-  if State.citizenId == nil then return response(false, { error = "no_character" }) end
-  return response(true, {
-    citizenId = State.citizenId,
-    family = State.family,
-    snapshot = State.canonical,
-  })
+--- @author DemiAutomatic
+--- @export getSkin
+--- @description Answers the live character's stored face as opx77_core holds it.
+--- @returns {AppearanceSkin}
+exports('getSkin', function()
+	local gone = nobody()
+	if gone then return gone end
+	if State.citizenId == nil then return response(false, { error = 'no_character' }) end
+	return response(true, {
+		citizenId = State.citizenId,
+		family = State.family,
+		snapshot = State.canonical,
+	})
 end)
 
---- What the puppet is wearing right now, canonical and ready to hand back to `setSkin` or
---- `saveSkin`. Reads the engine, so it answers nothing useful before the world has loaded.
----@return AppearanceCapture
-exports("captureSkin", function()
-  local gone = nobody()
-  if gone then return gone end
-  local payload, failure = Snapshot.capture()
-  if payload == nil then return response(false, { error = tostring(failure) }) end
-  return response(true, { snapshot = payload, citizenId = State.citizenId })
+--- @author DemiAutomatic
+--- @export captureSkin
+--- @description Answers what the puppet wears now, ready to hand back.
+--- @returns {AppearanceCapture}
+exports('captureSkin', function()
+	local gone = nobody()
+	if gone then return gone end
+	local payload, failure = Snapshot.Capture()
+	if payload == nil then return response(false, { error = tostring(failure) }) end
+	return response(true, { snapshot = payload, citizenId = State.citizenId })
 end)
 
---- The body family of the live character -- "female" or "male". It is `charInfo.gender` on the
---- character row and opx77_core owns it; nothing here can change it.
----@return AppearanceFamily
-exports("getFamily", function()
-  local gone = nobody()
-  if gone then return gone end
-  if State.citizenId == nil then return response(false, { error = "no_character" }) end
-  return response(true, { family = State.family, citizenId = State.citizenId })
+--- @author DemiAutomatic
+--- @export getFamily
+--- @description Answers the live character's body family.
+--- @returns {AppearanceFamily}
+exports('getFamily', function()
+	local gone = nobody()
+	if gone then return gone end
+	if State.citizenId == nil then return response(false, { error = 'no_character' }) end
+	return response(true, { family = State.family, citizenId = State.citizenId })
 end)
 
--- ---------------------------------------------------------------------------
--- Writing a face
--- ---------------------------------------------------------------------------
-
---- Put a snapshot on the puppet; nothing is stored, `saveSkin` is what persists. Answers that
---- the apply was ASKED for: the outcome arrives on the event channel as `applied`.
----@param snapshot AppearanceSnapshot
----@return AppearanceQueued
-exports("setSkin", function(snapshot)
-  local gone = nobody()
-  if gone then return gone end
-  if State.citizenId == nil then return response(false, { error = "no_character" }) end
-  if State.editing or State.creating then
-    return response(false, { error = "appearance_busy" })
-  end
-  local canonical, reason = Snapshot.forNetwork(snapshot)
-  if canonical == nil then return response(false, { error = tostring(reason) }) end
-  if not Snapshot.buildAccepted(canonical.gameBuild) then
-    return response(false, { error = "stored_build_mismatch" })
-  end
-  CreateThread(function()
-    local ok, failure = Runtime.applySnapshot(canonical, 8, nil)
-    Runtime.publish({ ok = ok, event = "applied", citizenId = State.citizenId,
-                      error = (not ok) and tostring(failure) or nil })
-  end)
-  return response(true, { queued = true, citizenId = State.citizenId })
+--- @author DemiAutomatic
+--- @export setSkin
+--- @description Asks for a face on the puppet without storing it.
+--- @param snapshot {AppearanceSnapshot}
+--- @returns {AppearanceQueued}
+exports('setSkin', function(snapshot)
+	local gone = nobody()
+	if gone then return gone end
+	if State.citizenId == nil then return response(false, { error = 'no_character' }) end
+	if State.editing or State.creating then
+		return response(false, { error = 'appearance_busy' })
+	end
+	local canonical, reason = Snapshot.ForNetwork(snapshot)
+	if canonical == nil then return response(false, { error = tostring(reason) }) end
+	if not Snapshot.BuildAccepted(canonical.gameBuild) then
+		return response(false, { error = 'stored_build_mismatch' })
+	end
+	CreateThread(function()
+		local ok, failure = Runtime.ApplySnapshot(canonical, 8, nil)
+		Runtime.Publish({ ok = ok, event = 'applied', citizenId = State.citizenId,
+			error = (not ok) and tostring(failure) or nil })
+	end)
+	return response(true, { queued = true, citizenId = State.citizenId })
 end)
 
---- Store a face through opx77_core; defaults to a capture of the puppet. Answers that the save
---- was ASKED for: the outcome arrives on the event channel as `saved`, unchanged saves too.
----@param snapshot AppearanceSnapshot|nil  defaults to a capture
----@return AppearanceQueued
-exports("saveSkin", function(snapshot)
-  local gone = nobody()
-  if gone then return gone end
-  local ok, reason = Editor.save(snapshot)
-  if not ok then return response(false, { error = reason }) end
-  return response(true, { queued = true, citizenId = State.citizenId })
+--- @author DemiAutomatic
+--- @export saveSkin
+--- @description Asks opx77_core to store a face, by default a capture.
+--- @param snapshot {AppearanceSnapshot|nil}
+--- @returns {AppearanceQueued}
+exports('saveSkin', function(snapshot)
+	local gone = nobody()
+	if gone then return gone end
+	local ok, reason = Editor.Save(snapshot)
+	if not ok then return response(false, { error = reason }) end
+	return response(true, { queued = true, citizenId = State.citizenId })
 end)
 
--- ---------------------------------------------------------------------------
--- The native modals
--- ---------------------------------------------------------------------------
-
---- Open the native appearance editor on the live character. `ok = true` means ASKED: the modal
---- opens a moment later, and it cannot change the body family.
----@param mode "ripperdoc"|"hairdresser"|nil  defaults to "ripperdoc"
----@return AppearanceQueued
-exports("openEditor", function(mode)
-  local gone = nobody()
-  if gone then return gone end
-  local ok, reason = Editor.open(mode or "ripperdoc")
-  if not ok then return response(false, { error = reason }) end
-  return response(true, { queued = true, citizenId = State.citizenId })
+--- @author DemiAutomatic
+--- @export openEditor
+--- @description Asks for the native face editor on the live character.
+--- @param mode {string|nil} Either ripperdoc or hairdresser.
+--- @returns {AppearanceQueued}
+exports('openEditor', function(mode)
+	local gone = nobody()
+	if gone then return gone end
+	local ok, reason = Editor.Open(mode or 'ripperdoc')
+	if not ok then return response(false, { error = reason }) end
+	return response(true, { queued = true, citizenId = State.citizenId })
 end)
 
---- Open the in-world editor for a character that has no face yet, on the body family it was
---- created with -- reloading the body first when the world is on the other one. This is the
---- call that answers `needsCreation`; the outcome arrives on the event channel as `created`.
----@return AppearanceQueued
-exports("openCreator", function()
-  local gone = nobody()
-  if gone then return gone end
-  local ok, reason = Editor.creator()
-  if not ok then return response(false, { error = reason }) end
-  return response(true, { queued = true, citizenId = State.citizenId })
+--- @author DemiAutomatic
+--- @export openCreator
+--- @description Answers needsCreation by opening the creation editor on the character's body.
+--- @returns {AppearanceQueued}
+exports('openCreator', function()
+	local gone = nobody()
+	if gone then return gone end
+	local ok, reason = Editor.Creator()
+	if not ok then return response(false, { error = reason }) end
+	return response(true, { queued = true, citizenId = State.citizenId })
 end)
 
---- Whether a native appearance modal is on screen right now, and which one. The call an
---- interaction resource makes before offering a prompt.
----@return AppearanceOpenState
-exports("isOpen", function()
-  local gone = nobody()
-  if gone then return gone end
-  return response(true, {
-    open = Open77.appearance.isOpen() == true,
-    editing = State.editing,
-    creating = State.creating,
-  })
+--- @author DemiAutomatic
+--- @export isOpen
+--- @description Answers whether a native modal is on screen, and which.
+--- @returns {AppearanceOpenState}
+exports('isOpen', function()
+	local gone = nobody()
+	if gone then return gone end
+	return response(true, {
+		open = Runtime.ModalOnScreen(),
+		editing = State.editing,
+		creating = State.creating,
+	})
 end)
 
--- ---------------------------------------------------------------------------
--- This resource's own surface
--- ---------------------------------------------------------------------------
+--- @author DemiAutomatic
+--- @export openPanel
+--- @description Asks for this resource's panel, drawn by opx77_menu, for the caller.
+--- @returns {AppearanceQueued}
+exports('openPanel', function()
+	local gone = nobody()
+	if gone then return gone end
+	local invoker = caller()
+	if Runtime.IsDown() then return response(false, { error = 'player_down' }) end
+	local ready, why = Panel.Available()
+	if not ready then return response(false, { error = why }) end
+	if State.citizenId == nil then return response(false, { error = 'no_character' }) end
 
---- Put this resource's panel on screen, drawn by opx77_menu: the saved look, the body family
---- and the two ways into the native editor. `ok = true` means ASKED, as everywhere here.
----@return AppearanceQueued
-exports("openPanel", function()
-  local gone = nobody()
-  if gone then return gone end
-  local invoker = caller()
-  local ready, why = Panel.available()
-  if not ready then return response(false, { error = why }) end
-  if State.citizenId == nil then return response(false, { error = "no_character" }) end
+	if Panel.NativeUp() then return response(false, { error = 'appearance_busy' }) end
+	if Panel.IsOpen() and Panel.Owner() ~= invoker then
+		return response(false, { error = 'panel_busy' })
+	end
 
-  -- the mirror is the only face editor there is, and the panel never draws over it
-  if Panel.nativeUp() then return response(false, { error = "appearance_busy" }) end
-  if Panel.isOpen() and Panel.owner() ~= invoker then
-    return response(false, { error = "panel_busy" })
-  end
-
-  return Panel.open(invoker, generation())
+	return Panel.Open(invoker, generation())
 end)
 
---- Take your own panel back down. A caller may not close another resource's.
----@return AppearanceResponse
-exports("closePanel", function()
-  local gone = nobody()
-  if gone then return gone end
-  if not Panel.isOpen() then return response(false, { error = "no_panel_open" }) end
-  if Panel.owner() ~= caller() then return response(false, { error = "not_owner" }) end
-  Panel.close("caller")
-  return response(true, {})
+--- @author DemiAutomatic
+--- @export closePanel
+--- @description Takes the caller's own panel down.
+--- @returns {AppearanceResponse}
+exports('closePanel', function()
+	local gone = nobody()
+	if gone then return gone end
+	if not Panel.IsOpen() then return response(false, { error = 'no_panel_open' }) end
+	if Panel.Owner() ~= caller() then return response(false, { error = 'not_owner' }) end
+	Panel.Close('caller')
+	return response(true, {})
 end)
 
--- ---------------------------------------------------------------------------
--- Where the session is
--- ---------------------------------------------------------------------------
-
---- Whether the appearance work for this world entry has finished -- restored, created, or
---- honestly failed. `open77:session:gameplayReady` goes out on the same condition, and never
---- before a character is loaded.
----@return AppearanceSettled
-exports("isSettled", function()
-  local gone = nobody()
-  if gone then return gone end
-  local waiting = nil
-  if State.creating then
-    waiting = "creator"
-  elseif State.creationAskedAtMs ~= 0 and State.canonical == nil then
-    waiting = "creation"
-  elseif not State.settled then
-    waiting = "server"
-  elseif State.bodyReloading then
-    waiting = "body"
-  elseif State.restoreToken ~= State.restoreSettledToken then
-    waiting = "restore"
-  end
-  return response(true, {
-    settled = State.appearanceSettled(),
-    announced = State.gameplayAnnounced,
-    waiting = waiting,
-    citizenId = State.citizenId,
-  })
+--- @author DemiAutomatic
+--- @export isSettled
+--- @description Answers whether appearance work finished, and what it waits on.
+--- @returns {AppearanceSettled}
+exports('isSettled', function()
+	local gone = nobody()
+	if gone then return gone end
+	local waiting = nil
+	if State.creating then
+		waiting = 'creator'
+	elseif State.creationAskedAtMs ~= 0 and State.canonical == nil then
+		waiting = 'creation'
+	elseif not State.settled then
+		waiting = 'server'
+	elseif State.bodyReloading then
+		waiting = 'body'
+	elseif State.restoreToken ~= State.restoreSettledToken then
+		waiting = 'restore'
+	end
+	return response(true, {
+		settled = State.AppearanceSettled(),
+		announced = State.gameplayAnnounced,
+		waiting = waiting,
+		citizenId = State.citizenId,
+	})
 end)
 
---- What this client knows: which character it is dressing, whether the stored face is on the
---- puppet, and which of the two modals is open. For a report on a face that did not come back.
----@return AppearanceClientState
-exports("state", function()
-  local gone = nobody()
-  if gone then return gone end
-  local report = State.report()
-  -- from the runtime rather than the state: after a restart only the bootstrap still knows it
-  report.body = Runtime.bodyFamily()
-  report.panel = Panel.isOpen()
-  report.ok = true
-  return report
+--- @author DemiAutomatic
+--- @export state
+--- @description Answers what this client knows, for a face that went wrong.
+--- @returns {AppearanceClientState}
+exports('state', function()
+	local gone = nobody()
+	if gone then return gone end
+	local report = State.Report()
+	report.body = Runtime.BodyFamily()
+	report.panel = Panel.IsOpen()
+	report.clothing = OpxAppearance.Clothing and OpxAppearance.Clothing.Report() or 'idle'
+	report.ok = true
+	return report
 end)
