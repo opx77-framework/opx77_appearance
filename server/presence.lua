@@ -375,6 +375,25 @@ RegisterNetEvent(ABSENT, function()
 end)
 
 --- @author DemiAutomatic
+--- @type {table<integer, integer>}
+--- @description Clothing diagnostics logged per player, bounded against a flooding client.
+local diagnostics = {}
+
+--- @author DemiAutomatic
+--- @event opx77_appearance:clothingDiagnostic
+--- @description Logs why a client's clothing did not read back: evidence, never authority.
+--- @param text {string}
+RegisterNetEvent('opx77_appearance:clothingDiagnostic', function(text)
+	local player = tonumber(source)
+	if not player or player <= 0 or type(text) ~= 'string' then return end
+	local count = (diagnostics[player] or 0) + 1
+	if count > 40 then return end
+	diagnostics[player] = count
+	text = text:sub(1, 1500):gsub('[%c]', ' ')
+	Open77.log.info(('clothing diagnostic from player %d: %s'):format(player, text))
+end)
+
+--- @author DemiAutomatic
 --- @event onPlayerBucketChange
 --- @description Hands a player and its new bucket's players each other's looks.
 --- @param player {integer}
@@ -401,7 +420,10 @@ end)
 --- @param playerId {integer|string}
 AddEventHandler('onPlayerDisconnected', function(playerId)
 	local player = tonumber(playerId)
-	if player then forget(player) end
+	if player then
+		forget(player)
+		diagnostics[player] = nil
+	end
 end)
 
 --- @author DemiAutomatic

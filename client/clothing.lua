@@ -400,10 +400,98 @@ local function restore()
 end
 
 --- @author DemiAutomatic
+--- @method shown
+--- @description Answers a short printable form of a plain value.
+--- @param value {any}
+--- @returns {string}
+local function shown(value)
+	if type(value) == 'string' then return value end
+	if type(value) ~= 'table' then return tostring(value) end
+	local parts = {}
+	for key, item in pairs(value) do
+		parts[#parts + 1] = tostring(key) .. '=' .. (type(item) == 'table' and 'table' or tostring(item))
+		if #parts >= 12 then break end
+	end
+	table.sort(parts)
+	return '{' .. table.concat(parts, ',') .. '}'
+end
+
+--- @author DemiAutomatic
+--- @method differences
+--- @description Answers where two plain values differ, as path=left|right lines.
+--- @param left {any}
+--- @param right {any}
+--- @returns {string}
+local function differences(left, right)
+	local out = {}
+	local function walk(path, a, b)
+		if #out >= 16 then return end
+		if type(a) == 'table' and type(b) == 'table' then
+			local keys = {}
+			for key in pairs(a) do keys[key] = true end
+			for key in pairs(b) do keys[key] = true end
+			for key in pairs(keys) do walk(path .. '.' .. tostring(key), a[key], b[key]) end
+		elseif not same(a, b) then
+			out[#out + 1] = ('%s=%s|%s'):format(path, shown(a), shown(b))
+		end
+	end
+	walk('', left, right)
+	return table.concat(out, '; ')
+end
+
+--- @author DemiAutomatic
+--- @method rawWorn
+--- @description Answers what the equipment and wardrobe calls return, before normalizing.
+--- @returns {string}
+local function rawWorn()
+	local equipment, wardrobe = Open77.equipment, Open77.wardrobe
+	if type(equipment) ~= 'table' or type(wardrobe) ~= 'table' then return 'no equipment api' end
+	local parts = {}
+	local read, registry, reason = pcall(equipment.registry)
+	parts[#parts + 1] = 'registry=' .. (read and (shown(registry) .. ' ' .. tostring(reason)) or
+		('raised ' .. tostring(registry)))
+	local listed, active, why = pcall(wardrobe.active)
+	parts[#parts + 1] = 'active=' .. (listed and (type(active) .. ':' .. tostring(active) .. ' ' .. tostring(why))
+		or ('raised ' .. tostring(active)))
+	local opened, outfit, failure = pcall(wardrobe.outfit, 0)
+	if not opened or type(outfit) ~= 'table' then
+		parts[#parts + 1] = 'outfit0=' .. tostring(opened and failure or outfit) .. ' ' .. type(outfit)
+	else
+		local keys = {}
+		for key, value in pairs(outfit) do keys[#keys + 1] = tostring(key) .. ':' .. type(value) end
+		table.sort(keys)
+		parts[#parts + 1] = 'outfit0 api={' .. table.concat(keys, ',') .. '}'
+		if type(outfit.registry) == 'function' then
+			local got, overrides, missing = pcall(outfit.registry)
+			parts[#parts + 1] = 'outfit0.registry=' .. (got and (shown(overrides) .. ' ' .. tostring(missing))
+				or ('raised ' .. tostring(overrides)))
+		end
+	end
+	return table.concat(parts, ' / ')
+end
+
+--- @author DemiAutomatic
+--- @method diagnose
+--- @description Logs why the clothing did not read back and tells the server's log too.
+--- @param worn {table|nil}
+--- @param reason {string|nil}
+local function diagnose(worn, reason)
+	local text = ('%s attempt %d/%d: '):format(tostring(citizen), attempts, RESTORE_ATTEMPTS)
+	if worn == nil then
+		text = text .. 'unreadable (' .. tostring(reason) .. ')'
+	else
+		text = text .. 'worn|target ' .. differences(worn, target)
+	end
+	text = text .. ' // raw ' .. rawWorn()
+	Open77.log.warn('clothing read-back: ' .. text)
+	TriggerServerEvent('opx77_appearance:clothingDiagnostic', text)
+end
+
+--- @author DemiAutomatic
 --- @method verify
 --- @description Reads the put-on record back, retrying or giving up.
 local function verify()
-	local worn = readWorn()
+	local worn, unreadable = readWorn()
 	if worn ~= nil and same(worn, target) then
 		phase = 'worn'
 		wanted = target
@@ -413,6 +501,7 @@ local function verify()
 		return publish('clothingRestored', true)
 	end
 	if Runtime.NowMs() - appliedAtMs < VERIFY_MS then return end
+	if attempts == 1 or attempts >= RESTORE_ATTEMPTS then diagnose(worn, unreadable) end
 	if attempts < RESTORE_ATTEMPTS then
 		phase = 'waiting'
 		return
