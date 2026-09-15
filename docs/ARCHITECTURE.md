@@ -20,8 +20,11 @@ Côté client, l'ordre porte : `client/snapshot.lua` crée `OpxAppearance.Snapsh
 `client/state.lua`, dont la garde contre une restauration redondante compare deux visages ;
 `client/main.lua` crée `OpxAppearance.Runtime`, que `client/editor.lua` lit au chargement ;
 `client/panel.lua` vient après l'éditeur, car une ligne du panneau ouvre le miroir ;
-`client/clothing.lua` et `client/presence.lua` viennent après `main.lua`, dont ils lisent l'état
-réglé ; `client/exports.lua` est le dernier, puisque publier la surface lit tout le reste.
+`client/clothing.lua` vient après `main.lua`, dont il lit l'état réglé, et publie sur
+`OpxAppearance.Clothing` ce que `client/presence.lua` lit au chargement juste après : les listes
+d'emplacements (`SLOTS`, `OUTFIT_SLOTS`), l'enregistrement par défaut (`DEFAULT`, jamais écrit),
+l'égalité par contenu (`Same`) et le test de famille d'un objet (`Fits`) ; `client/exports.lua` est
+le dernier, puisque publier la surface lit tout le reste.
 `State.EnterWorld` et `SwitchBody` lisent `OpxAppearance.Clothing` et `OpxAppearance.Presence`
 au moment de l'appel, avec une garde, parce que ces modules chargent après eux.
 
@@ -240,8 +243,13 @@ et enregistre le premier visage comme n'importe quelle capture. `Runtime.WarnUna
 fois qu'aucun créateur n'a répondu à `needsCreation` en `CREATION_WAIT_MS`, plutôt que de tenir le
 portail pour un créateur qui ne vient pas.
 
-Tout ce qui doit être regardé plutôt qu'attendu passe par un seul thread (`watch`) : une resource
-client a droit à 1024 tâches, et un thread par transaction est la façon de les épuiser.
+Tout ce qui doit être regardé plutôt qu'attendu passe par deux threads, un par cadence : une
+resource client a droit à 1024 tâches, et un thread par transaction est la façon de les épuiser.
+Toutes les `WATCH_MS` (200 ms), celui de `client/editor.lua` fait `watch` (création sans réponse,
+transition de corps, éditeur de création invisible, délai de capture), puis
+`Runtime.WatchReload`, puis `Runtime.Announce`. Chaque seconde, celui de `client/presence.lua` fait
+`Clothing.Check` puis `Presence.Check`. Chaque fichier plus tardif appelle directement le
+précédent ; l'ordre dans une passe est celui des anciens threads séparés.
 
 ## Le panneau
 
@@ -356,10 +364,9 @@ coupe pour un serveur où une autre resource distribue les looks.
 - `sequence` dans `client/presence.lua` : une réponse (`presentAck`, `replayed`) n'est prise que pour
   la dernière demande.
 
-Les boucles longues (`onClientResourceStart` de `client/main.lua`, le worker de l'éditeur, celui
-des vêtements, celui de la présence) passent chaque passe par `pcall` : une levée d'un appel hôte
-terminerait sinon la boucle pour la session, et c'est la boucle de `main.lua` qui termine un
-rechargement et lève le hold de la plateforme.
+Les deux boucles passent chaque appel par son propre `pcall` : une levée d'un appel hôte
+terminerait sinon la boucle pour la session, ou arrêterait les appels suivants, et c'est la boucle
+de `client/editor.lua` qui termine un rechargement et lève le hold de la plateforme.
 
 ## Pourquoi un visage stocké est refusé après une mise à jour
 
@@ -372,8 +379,8 @@ visage, sans les métadonnées d'éditeur que le codec de valeurs du runtime ne 
 
 ## Clés résolues à l'exécution
 
-- `Locale.Exists(code)` dans le gestionnaire `opx77:client:refused` de `client/editor.lua` affiche un refus de `saveAppearance`
-  dans la langue du joueur : `appearance.invalid`, `appearance.tooLarge`, `error.badRequest`,
+- `Locale.Exists(code)`, dans le gestionnaire `opx77:client:refused` de `client/editor.lua`,
+  affiche un refus de `saveAppearance` dans la langue du joueur : `appearance.invalid`, `appearance.tooLarge`, `error.badRequest`,
   `error.notLoggedIn`, `error.tooFast`, `error.unavailable`. Le core mappe une panne de stockage
   sur `error.unavailable` avant de l'envoyer.
 - Les refus de `saveClothing` (`clothing.invalid`, `clothing.tooLarge`, `clothing.stale`...) ne
