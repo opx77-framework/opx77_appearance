@@ -88,16 +88,16 @@ end
 --- @description Calls another resource's client export from a coroutine, checking every level.
 --- @param resource {string}
 --- @param name {string}
---- @returns {table|nil, string|nil, boolean}
+--- @returns {table|nil, string|nil}
 function OpxAppearance.Runtime.Call(resource, name, ...)
-	if GetResourceState(resource) ~= 'running' then return nil, 'not_running', false end
+	if GetResourceState(resource) ~= 'running' then return nil, 'not_running' end
 	local promise, reason = Open77.exports.call(resource, name, ...)
-	if not promise then return nil, tostring(reason or 'not_dispatched'), false end
+	if not promise then return nil, tostring(reason or 'not_dispatched') end
 	local result, callError = promise:await()
-	if callError then return nil, tostring(callError), false end
-	if type(result) ~= 'table' then return nil, 'malformed_answer', true end
-	if result.ok == false then return nil, tostring(result.error or 'refused'), true end
-	return result, nil, true
+	if callError then return nil, tostring(callError) end
+	if type(result) ~= 'table' then return nil, 'malformed_answer' end
+	if result.ok == false then return nil, tostring(result.error or 'refused') end
+	return result
 end
 
 --- @author DemiAutomatic
@@ -420,10 +420,9 @@ end
 --- @method OpxAppearance.Runtime.BeginRestore
 --- @description Restores the stored face on the right body once faceable.
 --- @param snapshot {table}
---- @param citizen {string|nil}
 --- @param origin {string}
-function OpxAppearance.Runtime.BeginRestore(snapshot, citizen, origin)
-	State.Adopt(snapshot, citizen)
+function OpxAppearance.Runtime.BeginRestore(snapshot, origin)
+	State.canonical = snapshot
 	local token = State.NextRestore()
 
 	if State.Wearing() then
@@ -635,7 +634,7 @@ function OpxAppearance.Runtime.ResolveCharacter(origin)
 
 	if type(stored) == 'table' then
 		State.restoreAttempts = 0
-		Runtime.BeginRestore(stored, nil, origin)
+		Runtime.BeginRestore(stored, origin)
 		return
 	end
 
@@ -681,7 +680,7 @@ AddEventHandler('open77:appearance:restore_failed', function()
 			State.restoreAttempts = State.restoreAttempts + 1
 			Open77.log.warn(('bootstrap restore aborted before confirmation; retry %d/%d'):format(
 				State.restoreAttempts, Config.RESTORE_RETRIES))
-			Runtime.BeginRestore(State.canonical, nil, 'mirror_abort')
+			Runtime.BeginRestore(State.canonical, 'mirror_abort')
 			return
 		end
 		Runtime.Notify('error', 'appearance.mirrorUnconfirmed')

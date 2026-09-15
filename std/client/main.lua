@@ -32,13 +32,12 @@ OpxAppearance.Runtime.ApplySnapshot = nil
 ---@param payload AppearanceEvent
 function OpxAppearance.Runtime.Publish(payload) end
 
---- Calls another resource's client export. Coroutine only. The third value is true when the
---- target answered, so a refusal is authoritative.
+--- Calls another resource's client export. Coroutine only. Answers the result, or nil and why:
+--- not running, not dispatched, a call error, a malformed answer, or the refusal's code.
 ---@param resource string
 ---@param name string
 ---@return table|nil result
 ---@return string|nil failure
----@return boolean answered
 function OpxAppearance.Runtime.Call(resource, name, ...) end
 
 --- Logs a toast and raises it through opx77_notify when `NOTIFY` is true and it runs.
@@ -86,9 +85,8 @@ function OpxAppearance.Runtime.Announce() end
 --- Restores `snapshot` on the character's body once the puppet is faceable, on its own
 --- restore generation.
 ---@param snapshot table
----@param citizen string|nil
 ---@param origin string
-function OpxAppearance.Runtime.BeginRestore(snapshot, citizen, origin) end
+function OpxAppearance.Runtime.BeginRestore(snapshot, origin) end
 
 --- Settles a world entry on the default face of the character's body, on its own generation.
 ---@param origin string

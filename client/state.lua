@@ -165,16 +165,6 @@ OpxAppearance.State.bootstrapResolved = false
 OpxAppearance.State.bootstrapPicking = false
 
 --- @author DemiAutomatic
---- @method OpxAppearance.State.Adopt
---- @description Adopts a stored face and, when given, the live character.
---- @param snapshot {table|nil}
---- @param citizen {string|nil}
-function OpxAppearance.State.Adopt(snapshot, citizen)
-	if type(snapshot) == 'table' then State.canonical = snapshot end
-	if citizen ~= nil then State.citizenId = citizen end
-end
-
---- @author DemiAutomatic
 --- @method OpxAppearance.State.NextRestore
 --- @description Starts a restore generation and answers its token.
 --- @returns {integer}

@@ -108,11 +108,6 @@ OpxAppearance.State.bootstrapResolved = false
 ---@type boolean
 OpxAppearance.State.bootstrapPicking = false
 
---- Adopts `snapshot` as the stored face when it is a table, and `citizen` when it is given.
----@param snapshot table|nil
----@param citizen string|nil
-function OpxAppearance.State.Adopt(snapshot, citizen) end
-
 --- Starts a restore generation and answers the token its thread carries; clears the queued-apply
 --- confirmations.
 ---@return integer

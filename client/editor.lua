@@ -343,7 +343,7 @@ AddEventHandler('opx77:client:appearanceSaved', function(snapshot)
 	if type(snapshot) ~= 'table' then return end
 	local pending = State.commit
 	State.commit = nil
-	State.Adopt(snapshot, nil)
+	State.canonical = snapshot
 
 	if pending ~= nil and pending.kind == 'create' then return Editor.FinishCreation() end
 	if pending ~= nil then
@@ -354,7 +354,7 @@ AddEventHandler('opx77:client:appearanceSaved', function(snapshot)
 		return
 	end
 
-	Runtime.BeginRestore(snapshot, nil, 'core')
+	Runtime.BeginRestore(snapshot, 'core')
 end)
 
 --- @author DemiAutomatic
