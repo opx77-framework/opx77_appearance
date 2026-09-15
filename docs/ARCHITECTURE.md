@@ -264,8 +264,11 @@ prend ses flèches : `nativeUp` compte une réponse illisible comme « à l'écr
 panneau (`appearance_busy`). `openNative` retire le panneau et attend la réponse d'`opx77_menu` au
 `close` **avant** de demander la modale. `session` monte à chaque ouverture et chaque fermeture :
 un `open` encore en vol quand le panneau a été retiré trouve sa session partie et referme la liste
-au lieu de l'adopter. La fermeture par le menu est reconnue au propriétaire plutôt qu'au handle,
-puisque `opx77_menu` peut retirer une liste avant que son export `open` ait répondu. `watch`
+au lieu de l'adopter. Une fermeture par le menu ne compte que si elle porte le handle
+du panneau ouvert, ou tant que ce handle n'est pas connu, puisque `opx77_menu` peut retirer une
+liste avant que son export `open` ait répondu ; une fermeture `reopened` est ignorée : c'est
+l'ancienne liste qu'`opx77_menu` remplace, et le `close` que `openNative` envoie depuis un thread
+peut arriver après l'ouverture suivante. `watch`
 protège `tick` par `pcall` et ne journalise qu'une fois par série d'échecs. `wearStored` lit le
 visage et le personnage avant le `yield` : un changement de personnage pendant l'apply est un autre
 visage.

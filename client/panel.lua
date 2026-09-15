@@ -419,6 +419,8 @@ AddEventHandler(EVENT, function(payload)
 	if type(payload) ~= 'table' or payload.menu ~= MENU_ID then return end
 	if payload.owner ~= RESOURCE then return end
 	if payload.action == 'close' then
+		if payload.reason == 'reopened' then return end
+		if handle ~= nil and payload.handle ~= handle then return end
 		takeDown(CLOSED_BY_PLAYER[payload.reason] and 'player' or 'menu_closed')
 		return
 	end
