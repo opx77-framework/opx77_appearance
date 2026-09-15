@@ -834,9 +834,10 @@ end)
 
 --- @author DemiAutomatic
 --- @event opx77:client:onPlayerUnloaded
---- @description Forgets the character's face and clothing.
+--- @description Forgets the character's face and clothing, releasing any native transaction.
 AddEventHandler('opx77:client:onPlayerUnloaded', function()
 	State.Unload()
+	Runtime.FinishMutation()
 	if OpxAppearance.Clothing then OpxAppearance.Clothing.Unload() end
 end)
 

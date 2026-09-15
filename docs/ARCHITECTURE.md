@@ -212,7 +212,8 @@ ouvert décide, pas l'événement.
   restauration pendant qu'un commit est en cours répond toujours `appearance_editor_busy`, d'où
   le `rollback` qui la libère **d'abord**. Après un enregistrement, `ReFinalizeState` met du
   travail en file dans le système de personnalisation : un budget d'une frame (`SetTimeout(250)`)
-  précède la libération.
+  précède la libération. Le déchargement du personnage la libère aussi : un éditeur ouvert à ce
+  moment ne tiendrait sinon la transaction pour personne.
 - **`Runtime.BeginPristine`** prend lui aussi une génération de restauration, pour que l'annonce
   attende le corps comme elle attendrait un visage.
 
@@ -409,6 +410,10 @@ visage, sans les métadonnées d'éditeur que le codec de valeurs du runtime ne 
   pour la transition couverte d'un rechargement de corps n'est retiré par rien : `open77_shell` ne le
   lève que pour le chargement pristine de la connexion. Un joueur qui choisit un personnage de
   l'autre corps peut rester derrière ; aucune resource ne peut le lever.
+- **Miroir ouvert au déchargement.** Aucun appel ne retire une modale native : un éditeur ouvert
+  quand le personnage se décharge reste à l'écran jusqu'à ce que le joueur le ferme. La
+  transaction est libérée et `State.Unload` oublie l'édition, donc sa confirmation n'enregistre
+  rien.
 - **Pas de garde-robe de visages.** Le core stocke un seul visage par personnage ; plusieurs looks
   enregistrés demandent une table et un travail côté core.
 - **Pas de choix de tenue** : il faudrait un catalogue de vêtements avec des libellés, qu'aucune
