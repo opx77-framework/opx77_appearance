@@ -61,7 +61,9 @@ Aucune `dependency` n'est déclarée : `opx77_core`, `opx77_menu` et `opx77_noti
   L'appelant vient de `GetInvokingResource()` : un appel sans resource invocante (depuis
   l'intérieur de la VM) est refusé par `export_call_required`, puisque rien d'interne ne devrait
   atteindre la surface publique. La génération (`GetInvokingResourceGeneration`) sert à retirer le
-  panneau d'un appelant rechargé.
+  panneau d'un appelant rechargé. Une levée d'`Open77.appearance.isOpen` compte comme une modale
+  à l'écran partout (`Runtime.ModalOnScreen`) : `isOpen` répond `open = true`, `openEditor` et
+  `openCreator` répondent `appearance_busy`, au lieu de lever.
 - **Une écriture répond qu'elle a été demandée**, jamais qu'elle a eu lieu : `setSkin`,
   `saveSkin`, `openEditor`, `openCreator` et `openPanel` répondent `queued = true`, et le résultat
   arrive sur `OPX_APPEARANCE_CONFIG.EVENT` (`applied`, `saved`, `created`, `panelOpened`...).

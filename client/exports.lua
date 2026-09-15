@@ -160,7 +160,7 @@ exports('isOpen', function()
 	local gone = nobody()
 	if gone then return gone end
 	return response(true, {
-		open = Open77.appearance.isOpen() == true,
+		open = Runtime.ModalOnScreen(),
 		editing = State.editing,
 		creating = State.creating,
 	})

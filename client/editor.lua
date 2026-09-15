@@ -167,7 +167,7 @@ end
 function OpxAppearance.Editor.Creator()
 	if State.citizenId == nil then return false, 'no_character' end
 	if State.creating then return false, 'appearance_busy' end
-	if State.editing or Open77.appearance.isOpen() then return false, 'appearance_busy' end
+	if State.editing or Runtime.ModalOnScreen() then return false, 'appearance_busy' end
 	if State.commit ~= nil then return false, 'appearance_busy' end
 	if State.creationRefused then return false, 'creation_refused' end
 	if type(State.canonical) == 'table' then return false, 'already_has_a_face' end
@@ -264,7 +264,7 @@ function OpxAppearance.Editor.Open(mode)
 	mode = tostring(mode or 'ripperdoc'):lower()
 	if mode ~= 'ripperdoc' and mode ~= 'hairdresser' then return false, 'invalid_mode' end
 	if State.creating then return false, 'character_creation_in_progress' end
-	if State.editing or Open77.appearance.isOpen() then return false, 'appearance_busy' end
+	if State.editing or Runtime.ModalOnScreen() then return false, 'appearance_busy' end
 	if State.commit ~= nil then return false, 'appearance_busy' end
 	if State.citizenId == nil then return false, 'no_character' end
 
