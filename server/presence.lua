@@ -223,7 +223,7 @@ end
 --- @param value {any}
 --- @returns {table}
 local function wardrobeOf(value)
-	local wardrobe = { outfits = {}, names = {} }
+	local wardrobe = { outfits = {} }
 	if type(value) ~= 'table' then return wardrobe end
 	if isInteger(value.active) and value.active >= 0 and value.active <= 6 then
 		wardrobe.active = value.active
