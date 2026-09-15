@@ -353,8 +353,7 @@ local function ready()
 	if State.editing or State.creating or State.creatorUp or State.commit ~= nil then
 		return false
 	end
-	local read, open = pcall(Open77.appearance.isOpen)
-	if not read or open == true then return false end
+	if Runtime.ModalOnScreen() then return false end
 	return Runtime.Faceable()
 end
 

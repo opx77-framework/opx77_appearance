@@ -422,9 +422,8 @@ local function watch()
 	if creationStalled() and Runtime.Faceable() then openCreator() end
 
 	if State.creatorUp and creatorAskedAtMs ~= 0 and not creatorShown then
-		local read, open = pcall(Open77.appearance.isOpen)
 		local waited = Runtime.NowMs() - creatorAskedAtMs
-		if not read or open == true then
+		if Runtime.ModalOnScreen() then
 			creatorShown = true
 		elseif waited >= CREATOR_UNSEEN_MS then
 			creatorShown = true

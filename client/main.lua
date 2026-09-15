@@ -273,6 +273,15 @@ end
 OpxAppearance.Runtime.MarkWorldEligibility = markWorldEligibility
 
 --- @author DemiAutomatic
+--- @method OpxAppearance.Runtime.ModalOnScreen
+--- @description Whether a native appearance modal is up, a raise counting as up.
+--- @returns {boolean}
+function OpxAppearance.Runtime.ModalOnScreen()
+	local read, open = pcall(Open77.appearance.isOpen)
+	return not read or open == true
+end
+
+--- @author DemiAutomatic
 --- @method OpxAppearance.Runtime.FinishMutation
 --- @description Releases the native appearance mutation transaction.
 function OpxAppearance.Runtime.FinishMutation()

@@ -114,10 +114,7 @@ end
 --- @description Whether a native modal is on screen, an unreadable answer included.
 --- @returns {boolean}
 local function nativeUp()
-	if State.editing or State.creating then return true end
-	local read, open = pcall(Open77.appearance.isOpen)
-	if not read then return true end
-	return open == true
+	return State.editing or State.creating or Runtime.ModalOnScreen()
 end
 OpxAppearance.Panel.NativeUp = nativeUp
 

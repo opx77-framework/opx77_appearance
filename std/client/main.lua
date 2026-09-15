@@ -62,6 +62,11 @@ function OpxAppearance.Runtime.FamilyText(family) end
 ---@return boolean
 function OpxAppearance.Runtime.Faceable() end
 
+--- Whether a native appearance modal is on screen. A raise from `Open77.appearance.isOpen` counts
+--- as on screen: drawing over the mirror, or dressing under it, costs the player more than waiting.
+---@return boolean
+function OpxAppearance.Runtime.ModalOnScreen() end
+
 --- Releases the native appearance mutation transaction.
 function OpxAppearance.Runtime.FinishMutation() end
 
