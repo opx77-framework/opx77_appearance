@@ -3,11 +3,11 @@
 OpxAppearance = OpxAppearance or {}
 
 local Config = OPX_APPEARANCE_CONFIG
-local Snapshot = OpxAppearance.snapshot
-local State = OpxAppearance.state
+local Snapshot = OpxAppearance.Snapshot
+local State = OpxAppearance.State
 
-local Runtime = {}
-OpxAppearance.runtime = Runtime
+OpxAppearance.Runtime = {}
+local Runtime = OpxAppearance.Runtime
 
 local RESOURCE = GetCurrentResourceName()
 local CORE = 'opx77_core'
@@ -44,11 +44,11 @@ local function nowMs()
 	end
 	return lastMs
 end
-Runtime.nowMs = nowMs
+OpxAppearance.Runtime.NowMs = nowMs
 
 --- Tell anything that is listening what just happened, on the resource's own public channel.
 ---@param payload table
-function Runtime.publish(payload)
+function OpxAppearance.Runtime.Publish(payload)
 	TriggerEvent(Config.EVENT, payload)
 end
 
@@ -57,7 +57,7 @@ end
 ---@param resource string
 ---@param name string
 ---@return table|nil, string|nil, boolean
-function Runtime.call(resource, name, ...)
+function OpxAppearance.Runtime.Call(resource, name, ...)
 	if GetResourceState(resource) ~= 'running' then return nil, 'not_running', false end
 	local promise, reason = Open77.exports.call(resource, name, ...)
 	if not promise then return nil, tostring(reason or 'not_dispatched'), false end
@@ -73,13 +73,13 @@ end
 ---@param kind "info"|"success"|"warning"|"error"
 ---@param key string  a locale key; the log line stays English and carries the key
 ---@param params table<string, string|number>|nil
-function Runtime.notify(kind, key, params)
+function OpxAppearance.Runtime.Notify(kind, key, params)
 	Open77.log.info(('notify %s: %s'):format(kind, key))
 	if Config.NOTIFY ~= true then return end
 	if GetResourceState(NOTIFY) ~= 'running' then return end
 	local message = locale(key, params)
 	CreateThread(function()
-		local _, failure = Runtime.call(NOTIFY, 'show', {
+		local _, failure = Runtime.Call(NOTIFY, 'show', {
 			type = kind,
 			title = 'APPEARANCE',
 			message = message,
@@ -91,7 +91,7 @@ end
 --- The player-facing name of a body family, for a message that has to say which one.
 ---@param family any
 ---@return string
-function Runtime.familyText(family)
+function OpxAppearance.Runtime.FamilyText(family)
 	if family == 'female' then return locale('appearance.familyFemale') end
 	if family == 'male' then return locale('appearance.familyMale') end
 	return tostring(family)
@@ -109,7 +109,7 @@ local function inGameplay()
 	return ok and type(character) == 'table' and character.attached == true and
 		character.alive == true and (tonumber(character.health) or 0) > 0
 end
-Runtime.inGameplay = inGameplay
+OpxAppearance.Runtime.InGameplay = inGameplay
 
 --- The host's character bootstrap phase, or "unreadable".
 ---@return string
@@ -117,7 +117,7 @@ local function bootstrapPhase()
 	local ok, bootstrap = pcall(Open77.session.characterBootstrap)
 	return ok and type(bootstrap) == 'table' and tostring(bootstrap.phase) or 'unreadable'
 end
-Runtime.bootstrapPhase = bootstrapPhase
+OpxAppearance.Runtime.BootstrapPhase = bootstrapPhase
 
 --- The host's word on this world entry's pristine player reset -- "complete" once it has run --
 --- or nil where the host projects none. Read live: it goes back to "complete" only when a reset
@@ -128,7 +128,7 @@ local function playerResetPhase()
 	if not ok or type(bootstrap) ~= 'table' or bootstrap.playerReset == nil then return nil end
 	return tostring(bootstrap.playerReset)
 end
-Runtime.playerResetPhase = playerResetPhase
+OpxAppearance.Runtime.PlayerResetPhase = playerResetPhase
 
 --- Said once, when this client cannot read its own life state at all.
 local lifeUnreadable = false
@@ -150,7 +150,7 @@ local function lifePhase()
 		:format(tostring(called and reason or life or reason)))
 	return nil
 end
-Runtime.lifePhase = lifePhase
+OpxAppearance.Runtime.LifePhase = lifePhase
 
 --- `BODY_RELOAD_SETTLE_MS`, or the shipped value for one that is not a finite number of ms.
 ---@return number
@@ -165,7 +165,7 @@ end
 --- reset has run, and -- after a reload -- the respawn the platform replays onto the new puppet
 --- over. The same conditions the platform's fitting room waits on before the native editor.
 ---@return boolean
-function Runtime.faceable()
+function OpxAppearance.Runtime.Faceable()
 	if not State.worldEligible or State.bodyReloading or not inGameplay() then return false end
 	local reset = playerResetPhase()
 	if reset ~= nil and reset ~= 'complete' then return false end
@@ -194,11 +194,11 @@ local function markWorldEligibility(reason)
 	Open77.log.debug(('world entry (%s): bootstrap phase=%s -> %s'):format(reason, phase,
 		State.worldEligible and 'gameplay world' or 'menu, not announcing'))
 end
-Runtime.markWorldEligibility = markWorldEligibility
+OpxAppearance.Runtime.MarkWorldEligibility = markWorldEligibility
 
 --- Release the native mutation transaction. Opening the restoration mirror while a commit is
 --- still pending always answers `appearance_editor_busy`.
-function Runtime.finishMutation()
+function OpxAppearance.Runtime.FinishMutation()
 	local ok, reason = Open77.appearance.finishCommit()
 	if not ok then Open77.log.debug('finishCommit: ' .. tostring(reason)) end
 end
@@ -212,15 +212,15 @@ end
 --- puppet's reset, on some builds at all -- and a restart of this resource forgets what it
 --- loaded: without the bootstrap's word the body would read unknown and be reloaded for nothing.
 ---@return string|nil
-function Runtime.bodyFamily()
+function OpxAppearance.Runtime.BodyFamily()
 	local read, body = pcall(Open77.appearance.captureBody)
-	if read and type(body) == 'table' and Snapshot.isFamily(body.family) then
+	if read and type(body) == 'table' and Snapshot.IsFamily(body.family) then
 		return body.family
 	end
 	if State.bodyFamily ~= nil then return State.bodyFamily end
 	local ok, bootstrap = pcall(Open77.session.characterBootstrap)
 	if ok and type(bootstrap) == 'table' and bootstrap.phase == 'ready' and
-		Snapshot.isFamily(bootstrap.family) then
+		Snapshot.IsFamily(bootstrap.family) then
 		return bootstrap.family
 	end
 	return nil
@@ -231,7 +231,7 @@ end
 ---@param family string
 ---@param edit boolean  the reload is for an editor, reopened from `takeBodyFamilyTransition`
 ---@return "switching"|"active"|nil outcome, string|nil reason
-function Runtime.switchBody(family, edit)
+function OpxAppearance.Runtime.SwitchBody(family, edit)
 	local called, switched, reason = pcall(Open77.appearance.switchBodyFamily, family, edit)
 	if not called then return nil, tostring(switched) end
 	if switched then
@@ -240,9 +240,9 @@ function Runtime.switchBody(family, edit)
 		State.reloadResetSeen = false
 		State.reloadSettleUntilMs = 0
 		-- the reload brings a pristine puppet: nothing this client put on the old one survives
-		State.undress()
+		State.Undress()
 		-- and observers drop their proxy of the old body until the new one is published
-		if OpxAppearance.presence then OpxAppearance.presence.withdraw() end
+		if OpxAppearance.Presence then OpxAppearance.Presence.Withdraw() end
 		Open77.log.info(('the %s body is reloading (%s)'):format(family,
 			edit and 'an editor reopens after it' or 'for the character'))
 		return 'switching'
@@ -258,51 +258,51 @@ end
 --- entry is the character's, and its face is decided again on the body it now has. A reload
 --- that failed before reaching a world is ended by `takeBodyFamilyTransition` instead.
 ---@param origin string
-function Runtime.finishReload(origin)
+function OpxAppearance.Runtime.FinishReload(origin)
 	if not State.bodyReloading then return end
 	State.bodyReloading = false
 	State.reloadResetSeen = false
 	State.reloadSettleUntilMs = nowMs() + reloadSettleMs()
 	Open77.log.info(('the body reload reached its new puppet (%s)'):format(origin))
-	State.enterWorld()
+	State.EnterWorld()
 	State.playerResetDone = true
 	markWorldEligibility(origin)
-	Runtime.resolveCharacter('body_reload')
+	Runtime.ResolveCharacter('body_reload')
 end
 
 --- Follow a reload through the host's reset projection, for a reload whose
 --- `open77:playerReset:complete` never reaches this resource. The projection still reads the
 --- old puppet's "complete" right after the switch, so only a return to it counts.
-function Runtime.watchReload()
+function OpxAppearance.Runtime.WatchReload()
 	if not State.bodyReloading then return end
 	local reset = playerResetPhase()
 	if reset == nil then return end
 	if reset ~= 'complete' then
 		State.reloadResetSeen = true
 	elseif State.reloadResetSeen then
-		Runtime.finishReload('reset_projection')
+		Runtime.FinishReload('reset_projection')
 	end
 end
 
 --- One reload onto the live character's own body family, counted against `FAMILY_RETRIES`.
 ---@return boolean reloading  true when the reload went out and the caller has to stop
 local function reloadOntoFamily()
-	if not Snapshot.isFamily(State.family) then return false end
+	if not Snapshot.IsFamily(State.family) then return false end
 	if State.familyAttempts >= Config.FAMILY_RETRIES then
 		-- only said when the engine or this client knows the body is the other one
-		if Runtime.bodyFamily() ~= nil then
-			Runtime.notify('error', 'appearance.bodyLoadFailed', { reason = 'body_family_retries' })
+		if Runtime.BodyFamily() ~= nil then
+			Runtime.Notify('error', 'appearance.bodyLoadFailed', { reason = 'body_family_retries' })
 		end
 		return false
 	end
-	local outcome, reason = Runtime.switchBody(State.family, false)
+	local outcome, reason = Runtime.SwitchBody(State.family, false)
 	if outcome == 'switching' then
 		State.familyAttempts = State.familyAttempts + 1
-		Runtime.notify('info', 'appearance.bodySwitching')
+		Runtime.Notify('info', 'appearance.bodySwitching')
 		return true
 	end
 	if outcome == nil then
-		Runtime.notify('error', 'appearance.bodyLoadFailed', { reason = tostring(reason) })
+		Runtime.Notify('error', 'appearance.bodyLoadFailed', { reason = tostring(reason) })
 	end
 	return false
 end
@@ -311,7 +311,7 @@ end
 --- of the last character played, and the one selected need not be that one.
 ---@return boolean proceed  false when a reload went out
 local function ensureFamily()
-	if not Snapshot.isFamily(State.family) or Runtime.bodyFamily() == State.family then
+	if not Snapshot.IsFamily(State.family) or Runtime.BodyFamily() == State.family then
 		return true
 	end
 	return not reloadOntoFamily()
@@ -325,17 +325,17 @@ end
 --- only signal that clears the platform's `__platform` readiness hold, and it is only ever sent
 --- for a loaded character: `appearanceSettled` is false while none is.
 ---@return boolean
-function Runtime.announce()
+function OpxAppearance.Runtime.Announce()
 	if State.gameplayAnnounced or not State.worldEligible then return false end
-	if not State.appearanceSettled() or not inGameplay() then return false end
+	if not State.AppearanceSettled() or not inGameplay() then return false end
 	local sent, reason = TriggerServerEvent('open77:session:gameplayReady')
 	if not sent then
 		Open77.log.warn('gameplay-ready not sent: ' .. tostring(reason))
 		return false
 	end
 	State.gameplayAnnounced = true
-	Runtime.finishMutation()
-	Runtime.publish({ ok = true, event = 'gameplayReady', citizenId = State.citizenId })
+	Runtime.FinishMutation()
+	Runtime.Publish({ ok = true, event = 'gameplayReady', citizenId = State.citizenId })
 	return true
 end
 
@@ -359,7 +359,7 @@ local RETRYABLE = {
 local function applySnapshot(snapshot, attempts, token)
 	if type(snapshot) ~= 'table' then return false, 'invalid_snapshot' end
 	for attempt = 1, attempts do
-		if token ~= nil and not State.current(token) then return false, 'superseded' end
+		if token ~= nil and not State.Current(token) then return false, 'superseded' end
 		local ok, reason = Open77.appearance.apply(snapshot)
 		if ok then return true end
 		if not RETRYABLE[tostring(reason)] or attempt >= attempts then return false, reason end
@@ -367,7 +367,7 @@ local function applySnapshot(snapshot, attempts, token)
 	end
 	return false, 'restore_timeout'
 end
-Runtime.applySnapshot = applySnapshot
+OpxAppearance.Runtime.ApplySnapshot = applySnapshot
 
 --- Wait for a puppet a face may go on. Coroutine only. No time limit -- this waits for a human
 --- to press a key -- but it says one line after a minute.
@@ -377,8 +377,8 @@ Runtime.applySnapshot = applySnapshot
 local function awaitWorld(token, label)
 	-- BOTH conditions: the menu puppet also answers attached, alive and health 100.
 	local waitedFrom, said = nowMs(), false
-	while not Runtime.faceable() do
-		if not State.current(token) then return false end
+	while not Runtime.Faceable() do
+		if not State.Current(token) then return false end
 		if not said and nowMs() - waitedFrom > 60000 then
 			said = true
 			Open77.log.warn(('%s token=%d is still waiting: eligible=%s reloading=%s gameplay=%s ' ..
@@ -388,7 +388,7 @@ local function awaitWorld(token, label)
 		end
 		Wait(WATCH_MS)
 	end
-	return State.current(token)
+	return State.Current(token)
 end
 
 --- One restore of the stored face, end to end: take the token, honour the redundant-restore
@@ -396,14 +396,14 @@ end
 ---@param snapshot table
 ---@param citizen string|nil
 ---@param origin string
-function Runtime.beginRestore(snapshot, citizen, origin)
-	State.adopt(snapshot, citizen)
-	local token = State.nextRestore()
+function OpxAppearance.Runtime.BeginRestore(snapshot, citizen, origin)
+	State.Adopt(snapshot, citizen)
+	local token = State.NextRestore()
 
 	-- Applying a face the puppet already wears arms a native watchdog with nothing to wait for
 	-- and ends in a user-facing error on a correct face. A body reload undresses the puppet, so
 	-- a face worn here is worn on the right body.
-	if State.wearing() then
+	if State.Wearing() then
 		State.restoreSettledToken = token
 		Open77.log.debug(('restore skipped for %s: already worn'):format(tostring(State.citizenId)))
 		return
@@ -419,45 +419,45 @@ function Runtime.beginRestore(snapshot, citizen, origin)
 		-- Twenty attempts rather than the eight a mid-session apply gets: this also has to cover
 		-- the short world/menu readiness window.
 		local ok, reason = applySnapshot(State.canonical, 20, token)
-		if not State.current(token) then return end
+		if not State.Current(token) then return end
 
 		-- Settled either way: a restore that FAILED must still let the player in.
 		State.restoreSettledToken = token
 		if ok then
-			State.wore()
+			State.Wore()
 			-- `apply` only queued the hidden mirror; the announcement waits for the two events that
 			-- follow.
 			State.bootstrapQueued = true
-			Runtime.publish({ ok = true, event = 'restored', citizenId = State.citizenId })
-			Runtime.announce()
+			Runtime.Publish({ ok = true, event = 'restored', citizenId = State.citizenId })
+			Runtime.Announce()
 			return
 		end
 
-		Runtime.finishMutation()
+		Runtime.FinishMutation()
 		-- The engine could not tell the body apart before the apply. `bodyReloading` holds the
 		-- announcement until the reload has entered the world and come back around.
 		if tostring(reason) == 'body_gender_switch_requires_reload' and reloadOntoFamily() then
 			return
 		end
 
-		Runtime.publish({ ok = false, event = 'restored', error = tostring(reason),
+		Runtime.Publish({ ok = false, event = 'restored', error = tostring(reason),
 			citizenId = State.citizenId })
-		Runtime.notify('error', 'appearance.restoreFailed', { reason = tostring(reason) })
-		Runtime.announce()
+		Runtime.Notify('error', 'appearance.restoreFailed', { reason = tostring(reason) })
+		Runtime.Announce()
 	end)
 end
 
 --- Settle a world entry with no face to put on: the character's own body, on the default face.
 --- It takes a restore generation, so the announcement waits on the body as it would on a face.
 ---@param origin string
-function Runtime.beginPristine(origin)
-	local token = State.nextRestore()
+function OpxAppearance.Runtime.BeginPristine(origin)
+	local token = State.NextRestore()
 	Open77.log.debug(('pristine token=%d origin=%s'):format(token, origin))
 	CreateThread(function()
 		if not awaitWorld(token, 'pristine') then return end
 		if not ensureFamily() then return end
 		State.restoreSettledToken = token
-		Runtime.announce()
+		Runtime.Announce()
 	end)
 end
 
@@ -469,20 +469,20 @@ end
 --- is normal and does nothing.
 ---@param family any
 ---@return boolean
-function Runtime.resolveBootstrap(family)
+function OpxAppearance.Runtime.ResolveBootstrap(family)
 	if State.bootstrapResolved then return true end
 	if bootstrapPhase() == 'ready' then
 		State.bootstrapResolved = true
 		return true
 	end
-	if not Snapshot.isFamily(family) then
+	if not Snapshot.IsFamily(family) then
 		Open77.session.failCharacterBootstrap('invalid_body_family')
 		return false
 	end
 	local resolved, reason = Open77.session.resolveCharacterBootstrap(family)
 	if not resolved then
 		Open77.session.failCharacterBootstrap(tostring(reason or 'character_bootstrap_failed'))
-		Runtime.notify('error', 'appearance.bootstrapFailed', { reason = tostring(reason) })
+		Runtime.Notify('error', 'appearance.bootstrapFailed', { reason = tostring(reason) })
 		return false
 	end
 	State.bootstrapResolved = true
@@ -526,7 +526,7 @@ local function lastPlayedFamily(characters)
 	for index = 1, #characters do
 		local summary = characters[index]
 		local at = type(summary) == 'table' and summary.lastLoggedOut or nil
-		if at ~= nil and Snapshot.isFamily(summary.gender) then
+		if at ~= nil and Snapshot.IsFamily(summary.gender) then
 			-- the core sends the roster most recently played first; this only guards that order,
 			-- and only between two stamps of one comparable type
 			local comparable = type(at) == type(latest) and
@@ -543,7 +543,7 @@ end
 ---@return string
 local function defaultFamily()
 	local bootstrap = type(Config.BOOTSTRAP) == 'table' and Config.BOOTSTRAP or {}
-	if Snapshot.isFamily(bootstrap.DEFAULT_FAMILY) then return bootstrap.DEFAULT_FAMILY end
+	if Snapshot.IsFamily(bootstrap.DEFAULT_FAMILY) then return bootstrap.DEFAULT_FAMILY end
 	Open77.log.warn(('BOOTSTRAP.DEFAULT_FAMILY %s is not "female" or "male"; loading %q')
 		:format(tostring(bootstrap.DEFAULT_FAMILY), DEFAULT_FAMILY))
 	return DEFAULT_FAMILY
@@ -567,7 +567,7 @@ end
 --- and every OPX//77 surface under it, until it is. Selection happens in the world afterwards.
 --- Once per connection; a second world entry while it runs does nothing.
 ---@param origin string
-function Runtime.beginBootstrap(origin)
+function OpxAppearance.Runtime.BeginBootstrap(origin)
 	if State.bootstrapResolved or State.bootstrapPicking then return end
 	if bootstrapPhase() ~= 'waiting' then return end
 	State.bootstrapPicking = true
@@ -588,7 +588,7 @@ function Runtime.beginBootstrap(origin)
 			(roster ~= nil and 'no character played yet' or 'no roster in time')
 		family = family or defaultFamily()
 		Open77.log.info(('bootstrap (%s): loading the %s body, %s'):format(origin, family, why))
-		Runtime.resolveBootstrap(family)
+		Runtime.ResolveBootstrap(family)
 	end)
 end
 
@@ -596,29 +596,29 @@ end
 --- one, publish `needsCreation` and wait, or settle on the default face. This resource never
 --- opens an editor on its own.
 ---@param origin string
-function Runtime.resolveCharacter(origin)
+function OpxAppearance.Runtime.ResolveCharacter(origin)
 	if State.citizenId == nil then return end
 	local stored = State.canonical
 
 	-- Spent at join as a rule. A character loaded before that has the best claim on the body; one
 	-- whose family is unreadable leaves it to the join-time pick rather than failing it.
-	if Snapshot.isFamily(State.family) then Runtime.resolveBootstrap(State.family) end
+	if Snapshot.IsFamily(State.family) then Runtime.ResolveBootstrap(State.family) end
 	State.settled = true
 
-	if type(stored) == 'table' and not Snapshot.buildAccepted(stored.gameBuild) then
-		Runtime.publish({ ok = false, event = 'settled', error = 'stored_build_mismatch',
+	if type(stored) == 'table' and not Snapshot.BuildAccepted(stored.gameBuild) then
+		Runtime.Publish({ ok = false, event = 'settled', error = 'stored_build_mismatch',
 			citizenId = State.citizenId })
 		if not State.buildWarned then
 			State.buildWarned = true
-			Runtime.notify('warning', 'appearance.buildMismatch')
+			Runtime.Notify('warning', 'appearance.buildMismatch')
 		end
-		Runtime.beginPristine(origin)
+		Runtime.BeginPristine(origin)
 		return
 	end
 
 	if type(stored) == 'table' then
 		State.restoreAttempts = 0
-		Runtime.beginRestore(stored, nil, origin)
+		Runtime.BeginRestore(stored, nil, origin)
 		return
 	end
 
@@ -630,26 +630,26 @@ function Runtime.resolveCharacter(origin)
 
 	if not State.creationRefused and not State.creationWarned then
 		State.creationAskedAtMs = nowMs()
-		Runtime.publish({ ok = true, event = 'needsCreation', citizenId = State.citizenId,
+		Runtime.Publish({ ok = true, event = 'needsCreation', citizenId = State.citizenId,
 			family = State.family })
 		return
 	end
 
-	Runtime.beginPristine(origin)
+	Runtime.BeginPristine(origin)
 end
 
 --- Says so, once, when nobody answered `needsCreation`, and lets the player in on the default
 --- face rather than holding the readiness gate for a creator that is not coming.
-function Runtime.warnUnanswered()
+function OpxAppearance.Runtime.WarnUnanswered()
 	if State.creationAskedAtMs == 0 or State.creating or State.creationWarned then return end
-	if Runtime.nowMs() - State.creationAskedAtMs < Config.CREATION_WAIT_MS then return end
+	if Runtime.NowMs() - State.creationAskedAtMs < Config.CREATION_WAIT_MS then return end
 	State.creationWarned = true
 	State.creationAskedAtMs = 0
 	Open77.log.warn(('%s has no stored face and nothing called the `openCreator` export')
 		:format(tostring(State.citizenId)))
 	Open77.log.warn('  the player enters on the default face; a character creator resource is')
 	Open77.log.warn('  what opens the editor. See README, "Who opens the creator".')
-	Runtime.beginPristine('creation_unanswered')
+	Runtime.BeginPristine('creation_unanswered')
 end
 
 -- ---------------------------------------------------------------------------
@@ -657,39 +657,39 @@ end
 -- ---------------------------------------------------------------------------
 
 AddEventHandler('open77:appearance:restore_failed', function()
-	Runtime.finishMutation()
+	Runtime.FinishMutation()
 
 	-- The abort concerns the restore the announcement waits on: retract the optimistic applied
 	-- record and re-dispatch. This event only fires once the bridge is polled, so it cannot spin.
 	if State.bootstrapToken == State.restoreToken and State.bootstrapQueued and
 		not State.appearanceConfirmed then
-		State.undress()
+		State.Undress()
 		State.bootstrapQueued = false
 		if type(State.canonical) == 'table' and State.restoreAttempts < Config.RESTORE_RETRIES then
 			State.restoreAttempts = State.restoreAttempts + 1
 			Open77.log.warn(('bootstrap restore aborted before confirmation; retry %d/%d'):format(
 				State.restoreAttempts, Config.RESTORE_RETRIES))
-			Runtime.beginRestore(State.canonical, nil, 'mirror_abort')
+			Runtime.BeginRestore(State.canonical, nil, 'mirror_abort')
 			return
 		end
-		Runtime.notify('error', 'appearance.mirrorUnconfirmed')
-		Runtime.announce()
+		Runtime.Notify('error', 'appearance.mirrorUnconfirmed')
+		Runtime.Announce()
 		return
 	end
 
 	-- Return BEFORE clearing the flags: clearing them would strand a player whose face is right.
-	if State.wearing() then return end
+	if State.Wearing() then return end
 	State.bootstrapQueued = false
 	State.appearanceConfirmed = false
-	Runtime.notify('error', 'appearance.catalogueMismatch')
+	Runtime.Notify('error', 'appearance.catalogueMismatch')
 end)
 
 AddEventHandler('open77:playerReset:complete', function()
 	-- The only world entry of a body reload a face may go on: the covered return to the menu
 	-- attaches a world as well, and its puppet never gets a reset.
-	Runtime.finishReload('playerReset')
+	Runtime.FinishReload('playerReset')
 	State.playerResetDone = true
-	Runtime.announce()
+	Runtime.Announce()
 end)
 
 -- ---------------------------------------------------------------------------
@@ -718,15 +718,15 @@ local function adoptCharacter(playerData, origin)
 	State.creationWarned = false
 	State.familyAttempts = 0
 	State.buildWarned = false
-	State.undress()
-	State.restoreSettledToken = State.nextRestore()
+	State.Undress()
+	State.restoreSettledToken = State.NextRestore()
 	-- what it wears travels in the same PlayerData, and goes on after its face
-	if OpxAppearance.clothing then OpxAppearance.clothing.adopt(playerData) end
+	if OpxAppearance.Clothing then OpxAppearance.Clothing.Adopt(playerData) end
 	if switching then
 		Open77.log.info(('live character is now %s'):format(citizen))
-		Runtime.publish({ ok = true, event = 'characterChanged', citizenId = citizen })
+		Runtime.Publish({ ok = true, event = 'characterChanged', citizenId = citizen })
 	end
-	Runtime.resolveCharacter(origin)
+	Runtime.ResolveCharacter(origin)
 end
 
 AddEventHandler('opx77:client:onPlayerLoaded', function(playerData)
@@ -740,15 +740,15 @@ AddEventHandler('opx77:client:playerDataChanged', function(playerData)
 end)
 
 AddEventHandler('opx77:client:onPlayerUnloaded', function()
-	State.unload()
-	if OpxAppearance.clothing then OpxAppearance.clothing.unload() end
+	State.Unload()
+	if OpxAppearance.Clothing then OpxAppearance.Clothing.Unload() end
 end)
 
 --- Catch up with a character that was already loaded. A resource reload mid-session misses
 --- every emission above, and there is no replay.
 local function catchUp()
 	CreateThread(function()
-		local result, failure = Runtime.call(CORE, 'GetPlayerData')
+		local result, failure = Runtime.Call(CORE, 'GetPlayerData')
 		if result == nil then return Open77.log.debug('catch-up: ' .. tostring(failure)) end
 		adoptCharacter(result.data, 'catchUp')
 	end)
@@ -759,11 +759,11 @@ end
 -- ---------------------------------------------------------------------------
 
 AddEventHandler('open77:worldReady', function()
-	State.enterWorld()
+	State.EnterWorld()
 	markWorldEligibility('worldReady')
 	-- the pre-game menu world raises this too, with the bootstrap still waiting on this resource
-	Runtime.beginBootstrap('worldReady')
-	Runtime.resolveCharacter('worldReady')
+	Runtime.BeginBootstrap('worldReady')
+	Runtime.ResolveCharacter('worldReady')
 end)
 
 AddEventHandler('onClientResourceStart', function(name)
@@ -775,9 +775,9 @@ AddEventHandler('onClientResourceStart', function(name)
 	end
 	-- No `worldReady` follows a republish into a live world, so eligibility is re-established
 	-- here. The same phase test keeps a start landing in the MENU from announcing.
-	State.enterWorld()
+	State.EnterWorld()
 	markWorldEligibility('resourceStart')
-	Runtime.beginBootstrap('resourceStart')
+	Runtime.BeginBootstrap('resourceStart')
 	catchUp()
 
 	CreateThread(function()
@@ -785,9 +785,9 @@ AddEventHandler('onClientResourceStart', function(name)
 			Wait(WATCH_MS)
 			-- a raise from a host call would end this loop for the session, and this loop is what
 			-- ends a reload and clears the platform's readiness hold
-			local watched, reason = pcall(Runtime.watchReload)
+			local watched, reason = pcall(Runtime.WatchReload)
 			if not watched then Open77.log.error('reload watch: ' .. tostring(reason)) end
-			local ok, failure = pcall(Runtime.announce)
+			local ok, failure = pcall(Runtime.Announce)
 			if not ok then Open77.log.error('announce worker: ' .. tostring(failure)) end
 		end
 	end)
@@ -795,5 +795,5 @@ end)
 
 AddEventHandler('onClientResourceStop', function(name)
 	if name ~= RESOURCE then return end
-	Runtime.finishMutation()
+	Runtime.FinishMutation()
 end)

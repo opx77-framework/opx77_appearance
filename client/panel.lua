@@ -3,13 +3,13 @@
 OpxAppearance = OpxAppearance or {}
 
 local Config = OPX_APPEARANCE_CONFIG
-local Snapshot = OpxAppearance.snapshot
-local State = OpxAppearance.state
-local Runtime = OpxAppearance.runtime
-local Editor = OpxAppearance.editor
+local Snapshot = OpxAppearance.Snapshot
+local State = OpxAppearance.State
+local Runtime = OpxAppearance.Runtime
+local Editor = OpxAppearance.Editor
 
-local Panel = {}
-OpxAppearance.panel = Panel
+OpxAppearance.Panel = {}
+local Panel = OpxAppearance.Panel
 
 local RESOURCE = GetCurrentResourceName()
 
@@ -43,7 +43,7 @@ local nextSweepMs = 0
 ---@param name string
 ---@return table|nil, string|nil
 local function menu(name, ...)
-	return Runtime.call(MENU, name, ...)
+	return Runtime.Call(MENU, name, ...)
 end
 
 --- Whether the panel can be drawn at all right now.
@@ -52,16 +52,16 @@ local function available()
 	if GetResourceState(MENU) ~= 'running' then return false, 'menu_not_running' end
 	return true
 end
-Panel.available = available
+OpxAppearance.Panel.Available = available
 
 ---@return boolean
 local function isOpen()
 	return owner ~= nil
 end
-Panel.isOpen = isOpen
+OpxAppearance.Panel.IsOpen = isOpen
 
 ---@return string|nil
-function Panel.owner()
+function OpxAppearance.Panel.Owner()
 	return owner
 end
 
@@ -74,7 +74,7 @@ local function nativeUp()
 	if not read then return true end
 	return open == true
 end
-Panel.nativeUp = nativeUp
+OpxAppearance.Panel.NativeUp = nativeUp
 
 -- ---------------------------------------------------------------------------
 -- What the menu is handed
@@ -84,20 +84,20 @@ Panel.nativeUp = nativeUp
 ---@return string
 local function storedText()
 	if type(State.canonical) ~= 'table' then return locale('appearance.panel.none') end
-	if State.wearing() then return locale('appearance.panel.worn') end
+	if State.Wearing() then return locale('appearance.panel.worn') end
 	return locale('appearance.panel.stored')
 end
 
 ---@return string
 local function familyText()
-	return State.family ~= nil and Runtime.familyText(State.family) or '-'
+	return State.family ~= nil and Runtime.FamilyText(State.family) or '-'
 end
 
 --- The saved look, and the two ways into Cyberpunk's own mirror.
 ---@return table[]  opx77_menu items
 local function looksItems()
 	local stored = type(State.canonical) == 'table' and State.canonical or nil
-	local fits = stored ~= nil and Snapshot.buildAccepted(stored.gameBuild)
+	local fits = stored ~= nil and Snapshot.BuildAccepted(stored.gameBuild)
 	local busy = State.commit ~= nil or nativeUp()
 
 	-- the reason is the row's value: a greyed row with nothing beside it reads as broken
@@ -106,7 +106,7 @@ local function looksItems()
 		blocked = locale('appearance.panel.none')
 	elseif not fits then
 		blocked = locale('appearance.panel.otherBuild')
-	elseif State.wearing() then
+	elseif State.Wearing() then
 		blocked = locale('appearance.panel.worn')
 	elseif busy then
 		blocked = locale('appearance.panel.busy')
@@ -165,7 +165,7 @@ local function spec()
 end
 
 --- Rebuild the open panel where the player is standing in it. Best-effort.
-function Panel.refresh()
+function OpxAppearance.Panel.Refresh()
 	if handle == nil then return end
 	local mine = session
 	CreateThread(function()
@@ -201,7 +201,7 @@ local function takeDown(reason)
 	local open = handle
 	session = session + 1
 	owner, ownerGeneration, handle = nil, nil, nil
-	Runtime.publish({ ok = true, event = 'panelClosed', citizenId = State.citizenId,
+	Runtime.Publish({ ok = true, event = 'panelClosed', citizenId = State.citizenId,
 		reason = reason })
 	return open
 end
@@ -216,7 +216,7 @@ end
 
 --- Take the panel down, for a reason of this resource's own.
 ---@param reason AppearancePanelReason
-function Panel.close(reason)
+function OpxAppearance.Panel.Close(reason)
 	local open = takeDown(reason)
 	if open == nil then return end
 	CreateThread(function() closeMenu(open) end)
@@ -228,7 +228,7 @@ local function menuClosed(reason)
 	if owner == nil then return end
 	session = session + 1
 	owner, ownerGeneration, handle = nil, nil, nil
-	Runtime.publish({ ok = true, event = 'panelClosed', citizenId = State.citizenId,
+	Runtime.Publish({ ok = true, event = 'panelClosed', citizenId = State.citizenId,
 		reason = CLOSED_BY_PLAYER[reason] and 'player' or 'menu_closed' })
 end
 
@@ -241,21 +241,21 @@ local function tick(atMs)
 	-- Cyberpunk's own mirror is the only face editor there is, and a list left drawn over it
 	-- takes the arrow keys away from it.
 	if nativeUp() then
-		Panel.close('appearance_busy')
+		Panel.Close('appearance_busy')
 		return false
 	end
 
 	if atMs < nextSweepMs then return true end
 	nextSweepMs = atMs + OWNER_SWEEP_MS
 	if GetResourceState(owner) ~= 'running' then
-		Panel.close('owner_stopped')
+		Panel.Close('owner_stopped')
 		return false
 	end
 	if ownerGeneration ~= nil and type(Open77.resource) == 'table' and
 		type(Open77.resource.generation) == 'function' then
 		local generation = Open77.resource.generation(owner)
 		if generation ~= nil and generation ~= ownerGeneration then
-			Panel.close('owner_reloaded')
+			Panel.Close('owner_reloaded')
 			return false
 		end
 	end
@@ -270,7 +270,7 @@ local function watch(mine)
 	while session == mine do
 		Wait(WATCH_MS)
 		if session ~= mine then return end
-		local ok, alive = pcall(tick, Runtime.nowMs())
+		local ok, alive = pcall(tick, Runtime.NowMs())
 		if not ok then
 			if not failing then Open77.log.error('the appearance panel: ' .. tostring(alive)) end
 			failing = true
@@ -285,13 +285,13 @@ end
 ---@param callerName string
 ---@param generation integer|nil
 ---@return AppearanceQueued
-function Panel.open(callerName, generation)
+function OpxAppearance.Panel.Open(callerName, generation)
 	local ready, why = available()
 	if not ready then return { ok = false, error = why } end
 
 	-- already yours: there is no level a caller can ask for, so a reopen is a redraw
 	if isOpen() then
-		Panel.refresh()
+		Panel.Refresh()
 		return { ok = true, queued = true, citizenId = State.citizenId }
 	end
 
@@ -311,7 +311,7 @@ function Panel.open(callerName, generation)
 			return
 		end
 		handle = opened.handle
-		Runtime.publish({ ok = true, event = 'panelOpened', citizenId = State.citizenId })
+		Runtime.Publish({ ok = true, event = 'panelOpened', citizenId = State.citizenId })
 		watch(mine)
 	end)
 	return { ok = true, queued = true, citizenId = State.citizenId }
@@ -328,9 +328,9 @@ local function openNative(mode)
 	local open = takeDown('caller')
 	CreateThread(function()
 		closeMenu(open)
-		local ok, reason = Editor.open(mode)
+		local ok, reason = Editor.Open(mode)
 		if ok then return end
-		Runtime.notify('error', 'appearance.editorUnavailable', { reason = tostring(reason) })
+		Runtime.Notify('error', 'appearance.editorUnavailable', { reason = tostring(reason) })
 	end)
 end
 
@@ -340,10 +340,10 @@ local function wearStored()
 	if type(State.canonical) ~= 'table' then
 		return status(locale('appearance.panel.noLook'), false)
 	end
-	if not Snapshot.buildAccepted(State.canonical.gameBuild) then
+	if not Snapshot.BuildAccepted(State.canonical.gameBuild) then
 		return status(locale('appearance.buildMismatch'), false)
 	end
-	if State.wearing() then
+	if State.Wearing() then
 		return status(locale('appearance.panel.alreadyWorn'), true)
 	end
 	if State.commit ~= nil or nativeUp() then
@@ -354,10 +354,10 @@ local function wearStored()
 	local snapshot, citizen = State.canonical, State.citizenId
 	status(locale('appearance.panel.wearing'), true)
 	CreateThread(function()
-		local ok, failure = Runtime.applySnapshot(snapshot, 8, nil)
+		local ok, failure = Runtime.ApplySnapshot(snapshot, 8, nil)
 		if State.citizenId ~= citizen or State.canonical ~= snapshot then return end
-		if ok then State.wore() end
-		Runtime.publish({ ok = ok, event = 'applied', citizenId = citizen,
+		if ok then State.Wore() end
+		Runtime.Publish({ ok = ok, event = 'applied', citizenId = citizen,
 			error = (not ok) and tostring(failure) or nil })
 		if ok then
 			status(locale('appearance.panel.wornNow'), true)
@@ -384,10 +384,10 @@ end)
 AddEventHandler(Config.EVENT, function(payload)
 	if owner == nil or type(payload) ~= 'table' then return end
 	local name = payload.event
-	if name == 'characterChanged' then return Panel.close('character_changed') end
-	if name == 'saved' or name == 'restored' or name == 'applied' then Panel.refresh() end
+	if name == 'characterChanged' then return Panel.Close('character_changed') end
+	if name == 'saved' or name == 'restored' or name == 'applied' then Panel.Refresh() end
 end)
 
 AddEventHandler('opx77:client:onPlayerUnloaded', function()
-	Panel.close('no_character')
+	Panel.Close('no_character')
 end)

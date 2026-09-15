@@ -12,11 +12,11 @@
 OpxAppearance = OpxAppearance or {}
 
 local Config = OPX_APPEARANCE_CONFIG
-local State = OpxAppearance.state
-local Runtime = OpxAppearance.runtime
+local State = OpxAppearance.State
+local Runtime = OpxAppearance.Runtime
 
-local Presence = {}
-OpxAppearance.presence = Presence
+OpxAppearance.Presence = {}
+local Presence = OpxAppearance.Presence
 
 local PRESENT = 'opx77_appearance:present'
 local ABSENT = 'opx77_appearance:absent'
@@ -149,20 +149,20 @@ end
 local function presentable()
 	if not (State.citizenId ~= nil and State.gameplayAnnounced and State.worldEligible and
 		not State.bodyReloading and not State.editing and not State.creatorUp and
-		State.appearanceSettled() and Runtime.inGameplay()) then
+		State.AppearanceSettled() and Runtime.InGameplay()) then
 		return false
 	end
 	-- last: the clothes are waited on from the moment the look would otherwise go out, and only
 	-- for so long, so a restore that never reads back cannot keep the player undrawn
-	local clothing = OpxAppearance.clothing
-	return clothing == nil or clothing.settled()
+	local clothing = OpxAppearance.Clothing
+	return clothing == nil or clothing.Settled()
 end
 
 --- Ask for everybody else's look, once per world entry, retried until answered. Only from the
 --- gameplay world: the pre-game menu's puppets are nobody's.
 local function askReplay()
 	if not replayWanted or not State.worldEligible then return end
-	local now = Runtime.nowMs()
+	local now = Runtime.NowMs()
 	if replaySequence ~= 0 and now - replayAtMs < RETRY_MS then return end
 	sequence = sequence + 1
 	if TriggerServerEvent(REPLAY, sequence) then replaySequence, replayAtMs = sequence, now end
@@ -181,7 +181,7 @@ local function publish()
 	local equipment, wardrobe = readClothing(body.family)
 	local look = { body = body, equipment = equipment, wardrobe = wardrobe }
 
-	local now = Runtime.nowMs()
+	local now = Runtime.NowMs()
 	if sent ~= nil and same(look, sent) and
 		(acknowledged == sentSequence or now - sentAtMs < RETRY_MS) then
 		return
@@ -197,7 +197,7 @@ local function publish()
 		:format(tostring(body.family), type(body.groups) == 'table' and #body.groups or 0, sequence))
 end
 
-function Presence.check()
+function OpxAppearance.Presence.Check()
 	if not enabled() then return end
 	askReplay()
 	publish()
@@ -205,7 +205,7 @@ end
 
 --- A new world: this client's proxies of everybody else went with the old one, and its own
 --- look is published again.
-function Presence.renew()
+function OpxAppearance.Presence.Renew()
 	sequence = sequence + 1
 	sent, acknowledged, sentSequence = nil, 0, 0
 	replayWanted, replaySequence, replayAtMs = true, 0, 0
@@ -213,7 +213,7 @@ end
 
 --- The body is going: a reload, or the character leaving. Observers drop their proxy until the
 --- next publication.
-function Presence.withdraw()
+function OpxAppearance.Presence.Withdraw()
 	if not enabled() then return end
 	sequence = sequence + 1
 	sent, acknowledged, sentSequence = nil, 0, 0
@@ -233,7 +233,7 @@ RegisterNetEvent(REPLAYED, function(value)
 end)
 
 RegisterNetEvent(RESEND, function()
-	Presence.renew()
+	Presence.Renew()
 end)
 
 --- Put a call on a proxy, saying why once when the host refuses it.
@@ -273,19 +273,19 @@ RegisterNetEvent(LOOK, function(player, look)
 	project('setBody', player, look.body)
 end)
 
-AddEventHandler('open77:worldReady', Presence.renew)
-AddEventHandler('opx77:client:onPlayerUnloaded', Presence.withdraw)
+AddEventHandler('open77:worldReady', Presence.Renew)
+AddEventHandler('opx77:client:onPlayerUnloaded', Presence.Withdraw)
 
 AddEventHandler('onClientResourceStart', function(name)
 	if name ~= GetCurrentResourceName() then return end
 	if Config.PRESENT_BODIES ~= false and GetResourceState(OFFICIAL) == 'running' then
 		Open77.log.warn(OFFICIAL .. ' is running and hands looks out itself; this resource does not')
 	end
-	Presence.renew()
+	Presence.Renew()
 	CreateThread(function()
 		while true do
 			Wait(CHECK_MS)
-			local ran, failure = pcall(Presence.check)
+			local ran, failure = pcall(Presence.Check)
 			if not ran then Open77.log.error('presence check: ' .. tostring(failure)) end
 		end
 	end)

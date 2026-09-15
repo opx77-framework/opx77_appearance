@@ -14,11 +14,11 @@
 OpxAppearance = OpxAppearance or {}
 
 local Config = OPX_APPEARANCE_CONFIG
-local State = OpxAppearance.state
-local Runtime = OpxAppearance.runtime
+local State = OpxAppearance.State
+local Runtime = OpxAppearance.Runtime
 
-local Clothing = {}
-OpxAppearance.clothing = Clothing
+OpxAppearance.Clothing = {}
+local Clothing = OpxAppearance.Clothing
 
 local SAVE = 'opx77:server:saveClothing'
 local SAVE_OPERATION = 'saveClothing'
@@ -115,7 +115,7 @@ local function normalize(value)
 	end
 	return out
 end
-Clothing.normalize = normalize
+OpxAppearance.Clothing.Normalize = normalize
 
 --- Whether two normalized records are the same clothing.
 ---@param left table|nil
@@ -138,7 +138,7 @@ local function same(left, right)
 	end
 	return true
 end
-Clothing.same = same
+OpxAppearance.Clothing.Same = same
 
 --- A record this body can wear, or false. An item the engine knows and the family cannot wear
 --- goes, as the platform's record shows it; so does one the engine does not know at all -- a
@@ -278,14 +278,14 @@ end
 ---@return boolean
 local function ready()
 	if State.citizenId == nil or State.citizenId ~= citizen then return false end
-	if not State.gameplayAnnounced or not State.appearanceSettled() then return false end
+	if not State.gameplayAnnounced or not State.AppearanceSettled() then return false end
 	if State.editing or State.creating or State.creatorUp or State.commit ~= nil then
 		return false
 	end
 	-- a raise counts as on screen, as it does for the panel
 	local read, open = pcall(Open77.appearance.isOpen)
 	if not read or open == true then return false end
-	return Runtime.faceable()
+	return Runtime.Faceable()
 end
 
 -- ---------------------------------------------------------------------------
@@ -296,7 +296,7 @@ end
 ---@param ok boolean
 ---@param failure string|nil
 local function publish(event, ok, failure)
-	Runtime.publish({ ok = ok, event = event, error = failure, citizenId = citizen })
+	Runtime.Publish({ ok = ok, event = event, error = failure, citizenId = citizen })
 end
 
 --- Say once per character, on screen, that its clothes are not being kept.
@@ -305,15 +305,15 @@ end
 local function tell(key, reason)
 	if told then return end
 	told = true
-	Runtime.notify('warning', key, { reason = reason })
+	Runtime.Notify('warning', key, { reason = reason })
 end
 
 local function restore()
 	attempts = attempts + 1
 	local source = wanted or (stored ~= false and stored or DEFAULT)
-	target = fitted(source, Runtime.bodyFamily())
+	target = fitted(source, Runtime.BodyFamily())
 	local ok, reason = putOn(target)
-	appliedAtMs = Runtime.nowMs()
+	appliedAtMs = Runtime.NowMs()
 	phase = 'restoring'
 	if not ok then
 		Open77.log.debug(('clothing put-on %d/%d refused: %s'):format(attempts, RESTORE_ATTEMPTS,
@@ -331,7 +331,7 @@ local function verify()
 			stored == false and 'the default record' or 'the stored record'))
 		return publish('clothingRestored', true)
 	end
-	if Runtime.nowMs() - appliedAtMs < VERIFY_MS then return end
+	if Runtime.NowMs() - appliedAtMs < VERIFY_MS then return end
 	if attempts < RESTORE_ATTEMPTS then
 		phase = 'waiting'
 		return
@@ -351,7 +351,7 @@ end
 
 ---@param record table
 local function send(record)
-	local now = Runtime.nowMs()
+	local now = Runtime.NowMs()
 	lastSentAtMs = now
 	local sent, reason = TriggerServerEvent(SAVE, { citizenId = citizen, clothing = record })
 	if not sent then
@@ -386,7 +386,7 @@ local function capture()
 		candidate = nil
 		return
 	end
-	local now = Runtime.nowMs()
+	local now = Runtime.NowMs()
 	if candidate == nil or not same(candidate, worn) then
 		candidate, candidateAtMs = worn, now
 		return
@@ -405,7 +405,7 @@ local function capture()
 end
 
 local function expire()
-	if pending == nil or Runtime.nowMs() < pending.deadlineMs then return end
+	if pending == nil or Runtime.NowMs() < pending.deadlineMs then return end
 	local failed = pending
 	pending = nil
 	Open77.log.warn(('opx77_core did not answer the clothing save of %s'):format(tostring(citizen)))
@@ -418,7 +418,7 @@ end
 
 --- A new world entry: the puppet is pristine, so whatever this character wears goes on again.
 --- What was last sent survives it, and so does its answer.
-function Clothing.enterWorld()
+function OpxAppearance.Clothing.EnterWorld()
 	target, attempts, appliedAtMs, holdFromMs = nil, 0, 0, 0
 	candidate = nil
 	phase = (citizen ~= nil and stored ~= nil and enabled()) and 'waiting' or 'idle'
@@ -426,7 +426,7 @@ end
 
 --- The live character changed: adopt its clothing from PlayerData.
 ---@param playerData table
-function Clothing.adopt(playerData)
+function OpxAppearance.Clothing.Adopt(playerData)
 	citizen = playerData.citizenId
 	local clothing = playerData.clothing
 	if clothing == false then
@@ -436,38 +436,38 @@ function Clothing.adopt(playerData)
 	end
 	saving = stored ~= nil and enabled()
 	wanted, pending, lastSentAtMs, strikes, told = nil, nil, nil, 0, false
-	Clothing.enterWorld()
+	Clothing.EnterWorld()
 	if stored == nil then
 		Open77.log.debug(('%s: opx77_core carries no clothing for it; it is left as it is')
 			:format(tostring(citizen)))
 	end
 end
 
-function Clothing.unload()
+function OpxAppearance.Clothing.Unload()
 	citizen, stored, saving, wanted, pending, lastSentAtMs = nil, nil, false, nil, nil, nil
 	strikes, told = 0, false
-	Clothing.enterWorld()
+	Clothing.EnterWorld()
 end
 
 --- Whether the published look may go out: the clothes are on, or given up on, or have been
 --- waited on for `PRESENCE_HOLD_MS` since the look first asked.
 ---@return boolean
-function Clothing.settled()
+function OpxAppearance.Clothing.Settled()
 	if phase ~= 'waiting' and phase ~= 'restoring' then return true end
-	local now = Runtime.nowMs()
+	local now = Runtime.NowMs()
 	if holdFromMs == 0 then holdFromMs = now end
 	return now - holdFromMs >= PRESENCE_HOLD_MS
 end
 
 --- For `state`: what this client is doing with the clothes.
 ---@return string
-function Clothing.report()
+function OpxAppearance.Clothing.Report()
 	if phase == 'worn' and pending ~= nil then return 'saving' end
 	if phase == 'worn' and not saving then return 'unsaved' end
 	return phase
 end
 
-function Clothing.check()
+function OpxAppearance.Clothing.Check()
 	expire()
 	if phase == 'idle' or phase == 'failed' then return end
 	if not ready() then
@@ -496,7 +496,7 @@ AddEventHandler('opx77:client:clothingSaved', function(record)
 	-- stored by something other than this client: the puppet follows it
 	wanted = record
 	if phase == 'worn' or phase == 'failed' then
-		Clothing.enterWorld()
+		Clothing.EnterWorld()
 	end
 end)
 
@@ -523,7 +523,7 @@ CreateThread(function()
 	while true do
 		Wait(CHECK_MS)
 		-- a raise from a host call would end this loop, and with it every restore and save
-		local ok, failure = pcall(Clothing.check)
+		local ok, failure = pcall(Clothing.Check)
 		if not ok then Open77.log.error('clothing worker: ' .. tostring(failure)) end
 	end
 end)

@@ -2,124 +2,124 @@
 
 OpxAppearance = OpxAppearance or {}
 
-local Snapshot = OpxAppearance.snapshot
+local Snapshot = OpxAppearance.Snapshot
 
-local State = {}
-OpxAppearance.state = State
+OpxAppearance.State = {}
+local State = OpxAppearance.State
 
 --- The live character, and its body family. Both come from opx77_core's PlayerData and are
 --- nil between `onPlayerUnloaded` and the next selection.
 ---@type string|nil
-State.citizenId = nil
+OpxAppearance.State.citizenId = nil
 ---@type string|nil
-State.family = nil
+OpxAppearance.State.family = nil
 
 --- The stored face, as `PlayerData.appearance` carries it. What a cancelled or refused edit
 --- is rolled back to.
 ---@type table|nil
-State.canonical = nil
+OpxAppearance.State.canonical = nil
 
 --- What is on the puppet, and which face it is. Re-applying a face the puppet already wears
 --- arms the native watchdog with nothing to open for, so it is guarded against.
 ---@type string|nil
-State.appliedCitizen = nil
+OpxAppearance.State.appliedCitizen = nil
 ---@type table|nil
-State.appliedSnapshot = nil
+OpxAppearance.State.appliedSnapshot = nil
 
 --- Restore generations. `restoreToken ~= restoreSettledToken` means one is still in flight,
 --- and a thread holding an older token has been superseded and stops.
-State.restoreToken = 0
-State.restoreSettledToken = 0
+OpxAppearance.State.restoreToken = 0
+OpxAppearance.State.restoreSettledToken = 0
 
 --- The join-time restore, and the two confirmations the readiness announcement waits on. A
 --- successful `apply` only QUEUES the vanilla mirror; the two arrive later as separate events.
 ---@type integer|nil
-State.bootstrapToken = nil
-State.bootstrapQueued = false
-State.appearanceConfirmed = false
-State.playerResetDone = false
+OpxAppearance.State.bootstrapToken = nil
+OpxAppearance.State.bootstrapQueued = false
+OpxAppearance.State.appearanceConfirmed = false
+OpxAppearance.State.playerResetDone = false
 
 --- How many times the CURRENT bootstrap restore has been re-dispatched. Renewed by every
 --- adopted face and by every world entry, so it is never a per-session budget.
-State.restoreAttempts = 0
+OpxAppearance.State.restoreAttempts = 0
 
 --- Whether this world is the gameplay one rather than the pre-game menu the join starts in.
-State.worldEligible = false
+OpxAppearance.State.worldEligible = false
 
 --- Sent exactly once per world entry, once the player is genuinely playable.
-State.gameplayAnnounced = false
+OpxAppearance.State.gameplayAnnounced = false
 
 --- Whether this world entry's face has been decided at all: restored, handed to a creation, or
 --- honestly given up on.
-State.settled = false
+OpxAppearance.State.settled = false
 
 --- Which of this resource's two modals is on screen. `creating` covers the whole creation,
 --- from `openCreator` to the core's answer; `creatorUp` only the editor being on screen.
-State.editing = false
-State.creating = false
-State.creatorUp = false
+OpxAppearance.State.editing = false
+OpxAppearance.State.creating = false
+OpxAppearance.State.creatorUp = false
 
 --- A captured face sent to opx77_core and not yet answered.
 ---@type { kind: "edit"|"create", deadlineMs: integer }|nil
-State.commit = nil
+OpxAppearance.State.commit = nil
 
 --- When the last capture went out, so the core's cooldown is waited out rather than tripped.
-State.lastSaveAtMs = 0
+OpxAppearance.State.lastSaveAtMs = 0
 
 --- Whether this character has already been told its stored face is from another build. Said
 --- once per character, not once per world entry.
-State.buildWarned = false
+OpxAppearance.State.buildWarned = false
 
 --- Body-family attempts spent on this character: world reloads onto its body, and creation
 --- editors that came back on the other one. Bounded by `FAMILY_RETRIES`.
-State.familyAttempts = 0
+OpxAppearance.State.familyAttempts = 0
 
 --- The body family the world was last loaded with by this client, for when the engine will
 --- not say. nil until the bootstrap or a switch.
 ---@type string|nil
-State.bodyFamily = nil
+OpxAppearance.State.bodyFamily = nil
 
 --- A body switch went out and its new puppet has not been through its pristine reset yet. The
 --- puppet standing there is the old body or the menu's, so nothing is applied to it, no editor
 --- is opened on it, and nothing is announced. A world entry alone does not end it.
-State.bodyReloading = false
+OpxAppearance.State.bodyReloading = false
 
 --- The host's reset projection has left "complete" since the switch, so its next "complete" is
 --- the new puppet's.
-State.reloadResetSeen = false
+OpxAppearance.State.reloadResetSeen = false
 
 --- Until when a finished reload holds modals back while the respawn the platform replays onto
 --- the new puppet runs, in ms; 0 when nothing does.
-State.reloadSettleUntilMs = 0
+OpxAppearance.State.reloadSettleUntilMs = 0
 
 --- This character's creation ended without a face, and `openCreator` must not reopen it until
 --- the character changes or this resource restarts. `openEditor` still can.
-State.creationRefused = false
+OpxAppearance.State.creationRefused = false
 
 --- A `needsCreation` that nothing has answered yet: when it went out, and whether the wait for
 --- an answer has already run out. 0 means nothing is waiting on `openCreator`; the
 --- announcement holds while something is.
-State.creationAskedAtMs = 0
-State.creationWarned = false
+OpxAppearance.State.creationAskedAtMs = 0
+OpxAppearance.State.creationWarned = false
 
 --- The record of having spent the one-shot character bootstrap. Not a cache of the phase: the
 --- phase is the host's and is read from the host.
-State.bootstrapResolved = false
+OpxAppearance.State.bootstrapResolved = false
 
 --- The join-time wait for the roster that picks the bootstrap body is running.
-State.bootstrapPicking = false
+OpxAppearance.State.bootstrapPicking = false
 
 --- Adopt the stored face for the live character.
 ---@param snapshot table|nil
 ---@param citizen string|nil
-function State.adopt(snapshot, citizen)
+function OpxAppearance.State.Adopt(snapshot, citizen)
 	if type(snapshot) == 'table' then State.canonical = snapshot end
 	if citizen ~= nil then State.citizenId = citizen end
 end
 
 --- A new restore generation. Answers the token the caller has to carry.
 ---@return integer
-function State.nextRestore()
+function OpxAppearance.State.NextRestore()
 	State.restoreToken = State.restoreToken + 1
 	State.bootstrapToken = State.restoreToken
 	State.bootstrapQueued = false
@@ -130,25 +130,25 @@ end
 --- Whether `token` is still the current restore.
 ---@param token integer
 ---@return boolean
-function State.current(token)
+function OpxAppearance.State.Current(token)
 	return token == State.restoreToken
 end
 
 --- Whether the puppet is already wearing this character's stored face.
 ---@return boolean
-function State.wearing()
+function OpxAppearance.State.Wearing()
 	return State.appliedCitizen ~= nil and State.appliedCitizen == State.citizenId and
-		Snapshot.same(State.appliedSnapshot, State.canonical)
+		Snapshot.Same(State.appliedSnapshot, State.canonical)
 end
 
 --- Record that it is. Called only once an apply has been accepted, never when one is queued.
-function State.wore()
+function OpxAppearance.State.Wore()
 	State.appliedCitizen = State.citizenId
 	State.appliedSnapshot = State.canonical
 end
 
 --- Forget what is on the puppet. A different character is a different face.
-function State.undress()
+function OpxAppearance.State.Undress()
 	State.appliedCitizen = nil
 	State.appliedSnapshot = nil
 end
@@ -156,7 +156,7 @@ end
 --- Whether every piece of appearance work for this world entry has finished -- committed,
 --- restored, or honestly failed. The gameplay announcement waits on this and nothing else.
 ---@return boolean
-function State.appearanceSettled()
+function OpxAppearance.State.AppearanceSettled()
 	if State.citizenId == nil then return false end
 	if not State.settled or State.creating or State.bodyReloading then return false end
 	-- a `needsCreation` still unanswered: the editor may yet come up
@@ -172,9 +172,9 @@ function State.appearanceSettled()
 end
 
 --- Everything a new world entry invalidates. The character itself survives it.
-function State.enterWorld()
+function OpxAppearance.State.EnterWorld()
 	-- the pristine puppet of a new world wears nothing this client put on the last one
-	if OpxAppearance.clothing then OpxAppearance.clothing.enterWorld() end
+	if OpxAppearance.Clothing then OpxAppearance.Clothing.EnterWorld() end
 	State.settled = false
 	State.gameplayAnnounced = false
 	State.bootstrapToken = nil
@@ -185,7 +185,7 @@ function State.enterWorld()
 end
 
 --- The character went. Everything about a face belongs to a character, so all of it goes.
-function State.unload()
+function OpxAppearance.State.Unload()
 	State.citizenId = nil
 	State.family = nil
 	State.canonical = nil
@@ -199,21 +199,21 @@ function State.unload()
 	State.familyAttempts = 0
 	State.buildWarned = false
 	State.settled = false
-	State.undress()
-	State.enterWorld()
+	State.Undress()
+	State.EnterWorld()
 end
 
 --- What `report` publishes: enough to debug a face that did not come back, and nothing a
 --- caller could mistake for authority.
 ---@return table
-function State.report()
+function OpxAppearance.State.Report()
 	return {
 		citizenId = State.citizenId,
 		family = State.family,
 		stored = State.canonical ~= nil,
-		wearing = State.wearing(),
+		wearing = State.Wearing(),
 		decided = State.settled,
-		settled = State.appearanceSettled(),
+		settled = State.AppearanceSettled(),
 		restoring = State.restoreToken ~= State.restoreSettledToken,
 		committing = State.commit ~= nil,
 		creating = State.creating,

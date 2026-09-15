@@ -3,8 +3,8 @@
 
 OpxAppearance = OpxAppearance or {}
 
-local Snapshot = {}
-OpxAppearance.snapshot = Snapshot
+OpxAppearance.Snapshot = {}
+local Snapshot = OpxAppearance.Snapshot
 
 local Config = OPX_APPEARANCE_CONFIG
 
@@ -13,14 +13,14 @@ local FAMILIES = { female = true, male = true }
 
 ---@param value any
 ---@return boolean
-function Snapshot.isFamily(value)
+function OpxAppearance.Snapshot.IsFamily(value)
 	return type(value) == 'string' and FAMILIES[value] == true
 end
 
 --- Whether a game build is one this resource will read a stored face back into.
 ---@param value any
 ---@return boolean
-function Snapshot.buildAccepted(value)
+function OpxAppearance.Snapshot.BuildAccepted(value)
 	return type(value) == 'string' and Config.GAME_BUILDS[value] == true
 end
 
@@ -28,7 +28,7 @@ end
 --- editor-only metadata the runtime's value codec will not carry.
 ---@param capture any  what `Open77.appearance.capture` answered
 ---@return table|nil payload, string|nil error
-function Snapshot.forNetwork(capture)
+function OpxAppearance.Snapshot.ForNetwork(capture)
 	if type(capture) ~= 'table' or type(capture.options) ~= 'table' then
 		return nil, 'invalid_snapshot'
 	end
@@ -58,11 +58,11 @@ end
 --- What the puppet is wearing, in network form. Never raises: the engine's own refusal is
 --- answered as an error code.
 ---@return table|nil payload, string|nil error
-function Snapshot.capture()
+function OpxAppearance.Snapshot.Capture()
 	local read, capture, failure = pcall(Open77.appearance.capture)
 	if not read then return nil, 'capture_failed' end
 	if type(capture) ~= 'table' then return nil, tostring(failure or 'capture_failed') end
-	local payload, reason = Snapshot.forNetwork(capture)
+	local payload, reason = Snapshot.ForNetwork(capture)
 	if payload == nil then return nil, tostring(reason) end
 	return payload
 end
@@ -72,7 +72,7 @@ end
 ---@param left table|nil
 ---@param right table|nil
 ---@return boolean
-function Snapshot.same(left, right)
+function OpxAppearance.Snapshot.Same(left, right)
 	if type(left) ~= 'table' or type(right) ~= 'table' then return false end
 	if left.gameBuild ~= right.gameBuild or left.catalogDigest ~= right.catalogDigest then
 		return false

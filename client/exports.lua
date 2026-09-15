@@ -1,11 +1,11 @@
 --- The public export surface: reading, applying, storing and editing the live character's
 --- face. Every call answers a table carrying `ok`, never raises, and is client-side only.
 
-local State = OpxAppearance.state
-local Snapshot = OpxAppearance.snapshot
-local Runtime = OpxAppearance.runtime
-local Editor = OpxAppearance.editor
-local Panel = OpxAppearance.panel
+local State = OpxAppearance.State
+local Snapshot = OpxAppearance.Snapshot
+local Runtime = OpxAppearance.Runtime
+local Editor = OpxAppearance.Editor
+local Panel = OpxAppearance.Panel
 
 ---@param ok boolean
 ---@param values table|nil
@@ -67,7 +67,7 @@ end)
 exports('captureSkin', function()
 	local gone = nobody()
 	if gone then return gone end
-	local payload, failure = Snapshot.capture()
+	local payload, failure = Snapshot.Capture()
 	if payload == nil then return response(false, { error = tostring(failure) }) end
 	return response(true, { snapshot = payload, citizenId = State.citizenId })
 end)
@@ -97,14 +97,14 @@ exports('setSkin', function(snapshot)
 	if State.editing or State.creating then
 		return response(false, { error = 'appearance_busy' })
 	end
-	local canonical, reason = Snapshot.forNetwork(snapshot)
+	local canonical, reason = Snapshot.ForNetwork(snapshot)
 	if canonical == nil then return response(false, { error = tostring(reason) }) end
-	if not Snapshot.buildAccepted(canonical.gameBuild) then
+	if not Snapshot.BuildAccepted(canonical.gameBuild) then
 		return response(false, { error = 'stored_build_mismatch' })
 	end
 	CreateThread(function()
-		local ok, failure = Runtime.applySnapshot(canonical, 8, nil)
-		Runtime.publish({ ok = ok, event = 'applied', citizenId = State.citizenId,
+		local ok, failure = Runtime.ApplySnapshot(canonical, 8, nil)
+		Runtime.Publish({ ok = ok, event = 'applied', citizenId = State.citizenId,
 			error = (not ok) and tostring(failure) or nil })
 	end)
 	return response(true, { queued = true, citizenId = State.citizenId })
@@ -117,7 +117,7 @@ end)
 exports('saveSkin', function(snapshot)
 	local gone = nobody()
 	if gone then return gone end
-	local ok, reason = Editor.save(snapshot)
+	local ok, reason = Editor.Save(snapshot)
 	if not ok then return response(false, { error = reason }) end
 	return response(true, { queued = true, citizenId = State.citizenId })
 end)
@@ -133,7 +133,7 @@ end)
 exports('openEditor', function(mode)
 	local gone = nobody()
 	if gone then return gone end
-	local ok, reason = Editor.open(mode or 'ripperdoc')
+	local ok, reason = Editor.Open(mode or 'ripperdoc')
 	if not ok then return response(false, { error = reason }) end
 	return response(true, { queued = true, citizenId = State.citizenId })
 end)
@@ -145,7 +145,7 @@ end)
 exports('openCreator', function()
 	local gone = nobody()
 	if gone then return gone end
-	local ok, reason = Editor.creator()
+	local ok, reason = Editor.Creator()
 	if not ok then return response(false, { error = reason }) end
 	return response(true, { queued = true, citizenId = State.citizenId })
 end)
@@ -174,17 +174,17 @@ exports('openPanel', function()
 	local gone = nobody()
 	if gone then return gone end
 	local invoker = caller()
-	local ready, why = Panel.available()
+	local ready, why = Panel.Available()
 	if not ready then return response(false, { error = why }) end
 	if State.citizenId == nil then return response(false, { error = 'no_character' }) end
 
 	-- the mirror is the only face editor there is, and the panel never draws over it
-	if Panel.nativeUp() then return response(false, { error = 'appearance_busy' }) end
-	if Panel.isOpen() and Panel.owner() ~= invoker then
+	if Panel.NativeUp() then return response(false, { error = 'appearance_busy' }) end
+	if Panel.IsOpen() and Panel.Owner() ~= invoker then
 		return response(false, { error = 'panel_busy' })
 	end
 
-	return Panel.open(invoker, generation())
+	return Panel.Open(invoker, generation())
 end)
 
 --- Take your own panel back down. A caller may not close another resource's.
@@ -192,9 +192,9 @@ end)
 exports('closePanel', function()
 	local gone = nobody()
 	if gone then return gone end
-	if not Panel.isOpen() then return response(false, { error = 'no_panel_open' }) end
-	if Panel.owner() ~= caller() then return response(false, { error = 'not_owner' }) end
-	Panel.close('caller')
+	if not Panel.IsOpen() then return response(false, { error = 'no_panel_open' }) end
+	if Panel.Owner() ~= caller() then return response(false, { error = 'not_owner' }) end
+	Panel.Close('caller')
 	return response(true, {})
 end)
 
@@ -222,7 +222,7 @@ exports('isSettled', function()
 		waiting = 'restore'
 	end
 	return response(true, {
-		settled = State.appearanceSettled(),
+		settled = State.AppearanceSettled(),
 		announced = State.gameplayAnnounced,
 		waiting = waiting,
 		citizenId = State.citizenId,
@@ -235,11 +235,11 @@ end)
 exports('state', function()
 	local gone = nobody()
 	if gone then return gone end
-	local report = State.report()
+	local report = State.Report()
 	-- from the runtime rather than the state: after a restart only the bootstrap still knows it
-	report.body = Runtime.bodyFamily()
-	report.panel = Panel.isOpen()
-	report.clothing = OpxAppearance.clothing and OpxAppearance.clothing.report() or 'idle'
+	report.body = Runtime.BodyFamily()
+	report.panel = Panel.IsOpen()
+	report.clothing = OpxAppearance.Clothing and OpxAppearance.Clothing.Report() or 'idle'
 	report.ok = true
 	return report
 end)

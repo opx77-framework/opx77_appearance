@@ -4,12 +4,12 @@ OpxAppearance = OpxAppearance or {}
 
 local Config = OPX_APPEARANCE_CONFIG
 local Locale = OpxAppearance.Locale
-local Snapshot = OpxAppearance.snapshot
-local State = OpxAppearance.state
-local Runtime = OpxAppearance.runtime
+local Snapshot = OpxAppearance.Snapshot
+local State = OpxAppearance.State
+local Runtime = OpxAppearance.Runtime
 
-local Editor = {}
-OpxAppearance.editor = Editor
+OpxAppearance.Editor = {}
+local Editor = OpxAppearance.Editor
 
 --- How often the worker looks at the modals, in ms.
 local WATCH_MS = 200
@@ -32,12 +32,12 @@ local REFUSALS = {
 --- transaction is released FIRST, or the restoration mirror answers `appearance_editor_busy`.
 ---@param reason any
 local function rollback(reason)
-	Runtime.finishMutation()
+	Runtime.FinishMutation()
 	if type(State.canonical) ~= 'table' then return end
 	CreateThread(function()
-		local ok, failure = Runtime.applySnapshot(State.canonical, 8, nil)
+		local ok, failure = Runtime.ApplySnapshot(State.canonical, 8, nil)
 		if not ok then
-			Runtime.notify('error', 'appearance.rollbackFailed',
+			Runtime.Notify('error', 'appearance.rollbackFailed',
 				{ reason = tostring(reason), failure = tostring(failure) })
 		end
 	end)
@@ -47,8 +47,8 @@ end
 --- core's refusals carry.
 ---@param code string
 local function refused(code)
-	if Locale.exists(code) then return Runtime.notify('error', code) end
-	Runtime.notify('error', 'appearance.saveFailed', { reason = code })
+	if Locale.Exists(code) then return Runtime.Notify('error', code) end
+	Runtime.Notify('error', 'appearance.saveFailed', { reason = code })
 end
 
 --- Send a captured face to opx77_core. The core's cooldown is waited out rather than tripped:
@@ -60,11 +60,11 @@ local function send(payload, kind, onNotSent)
 	-- deadline 0 until the event is actually out, so the worker cannot time out the wait below
 	State.commit = { kind = kind, deadlineMs = 0 }
 	CreateThread(function()
-		local idle = Config.SAVE_COOLDOWN_MS - (Runtime.nowMs() - State.lastSaveAtMs)
+		local idle = Config.SAVE_COOLDOWN_MS - (Runtime.NowMs() - State.lastSaveAtMs)
 		if idle > 0 then Wait(idle) end
 		if State.commit == nil then return end
-		State.lastSaveAtMs = Runtime.nowMs()
-		State.commit.deadlineMs = Runtime.nowMs() + Config.COMMIT_MS
+		State.lastSaveAtMs = Runtime.NowMs()
+		State.commit.deadlineMs = Runtime.NowMs() + Config.COMMIT_MS
 		local sent, reason = TriggerServerEvent('opx77:server:saveAppearance',
 			{ snapshot = payload })
 		if sent then return end
@@ -86,10 +86,10 @@ local function enterPristine(reason)
 	State.creatorUp = false
 	State.commit = nil
 	State.creationRefused = true
-	Runtime.publish({ ok = false, event = 'created', error = tostring(reason),
+	Runtime.Publish({ ok = false, event = 'created', error = tostring(reason),
 		citizenId = State.citizenId })
-	Runtime.notify('error', 'appearance.creationNotSaved', { reason = tostring(reason) })
-	Runtime.beginPristine('creation_ended')
+	Runtime.Notify('error', 'appearance.creationNotSaved', { reason = tostring(reason) })
+	Runtime.BeginPristine('creation_ended')
 end
 
 --- A creation editor is being waited for or opened, so a second ask does not open two.
@@ -117,7 +117,7 @@ local function openCreator()
 		-- The editor needs the gameplay puppet, which the character's placement can still be
 		-- putting back up. After a body reload that means its reset as well: an editor asked for
 		-- before it was acknowledged by the game, then never consumed, however often retried.
-		while not Runtime.faceable() do
+		while not Runtime.Faceable() do
 			if not State.creating or State.citizenId ~= citizen then
 				creatorOpening = false
 				return
@@ -127,18 +127,18 @@ local function openCreator()
 		creatorOpening = false
 		if not State.creating or State.creatorUp or State.citizenId ~= citizen then return end
 
-		local family = Snapshot.isFamily(State.family) and State.family or nil
-		if family ~= nil and Runtime.bodyFamily() ~= family then
+		local family = Snapshot.IsFamily(State.family) and State.family or nil
+		if family ~= nil and Runtime.BodyFamily() ~= family then
 			if State.familyAttempts >= Config.FAMILY_RETRIES then
 				return enterPristine('body_family_mismatch')
 			end
-			local outcome, reason = Runtime.switchBody(family, true)
+			local outcome, reason = Runtime.SwitchBody(family, true)
 			if outcome == 'switching' then
 				State.familyAttempts = State.familyAttempts + 1
-				return Runtime.notify('info', 'appearance.creatorSwitching')
+				return Runtime.Notify('info', 'appearance.creatorSwitching')
 			end
 			if outcome == nil then
-				Runtime.notify('error', 'appearance.bodyChangeFailed', { reason = tostring(reason) })
+				Runtime.Notify('error', 'appearance.bodyChangeFailed', { reason = tostring(reason) })
 				return enterPristine('body_family_mismatch')
 			end
 		end
@@ -146,11 +146,11 @@ local function openCreator()
 		local opened, reason = Open77.appearance.open({ mode = 'ripperdoc', gender = family })
 		if opened then
 			State.creatorUp = true
-			creatorAskedAtMs, creatorShown = Runtime.nowMs(), false
+			creatorAskedAtMs, creatorShown = Runtime.NowMs(), false
 			Open77.log.info(('creation editor asked for on the %s body'):format(tostring(family)))
 			return
 		end
-		Runtime.notify('error', 'appearance.creatorUnavailable', { reason = tostring(reason) })
+		Runtime.Notify('error', 'appearance.creatorUnavailable', { reason = tostring(reason) })
 		enterPristine('character_creator_unavailable')
 	end)
 end
@@ -158,7 +158,7 @@ end
 --- Open the in-world editor for the live character, on the body family it was created with;
 --- the caller is answering `needsCreation`. The outcome reaches the event channel as `created`.
 ---@return boolean, string|nil
-function Editor.creator()
+function OpxAppearance.Editor.Creator()
 	if State.citizenId == nil then return false, 'no_character' end
 	if State.creating then return false, 'appearance_busy' end
 	if State.editing or Open77.appearance.isOpen() then return false, 'appearance_busy' end
@@ -171,13 +171,13 @@ function Editor.creator()
 end
 
 --- The core stored the face the editor built.
-function Editor.finishCreation()
+function OpxAppearance.Editor.FinishCreation()
 	State.creating = false
 	State.creatorUp = false
-	State.wore()
-	Runtime.publish({ ok = true, event = 'created', citizenId = State.citizenId })
-	Runtime.notify('success', 'appearance.created')
-	Runtime.announce()
+	State.Wore()
+	Runtime.Publish({ ok = true, event = 'created', citizenId = State.citizenId })
+	Runtime.Notify('success', 'appearance.created')
+	Runtime.Announce()
 end
 
 --- The player confirmed the creation editor: check the body, capture, and send it to the core.
@@ -186,27 +186,27 @@ local function confirmCreation()
 
 	-- The body family is the character's, and this resource never changes it: an editor that
 	-- came back on the other body is refused and reopened.
-	local family = Runtime.bodyFamily()
-	if Snapshot.isFamily(State.family) and family ~= nil and family ~= State.family then
-		Runtime.finishMutation()
+	local family = Runtime.BodyFamily()
+	if Snapshot.IsFamily(State.family) and family ~= nil and family ~= State.family then
+		Runtime.FinishMutation()
 		State.familyAttempts = State.familyAttempts + 1
 		if State.familyAttempts > Config.FAMILY_RETRIES then
 			return enterPristine('body_family_mismatch')
 		end
-		Runtime.notify('warning', 'appearance.wrongBody',
-			{ family = Runtime.familyText(State.family) })
+		Runtime.Notify('warning', 'appearance.wrongBody',
+			{ family = Runtime.FamilyText(State.family) })
 		return openCreator()
 	end
 
-	local payload, why = Snapshot.capture()
+	local payload, why = Snapshot.Capture()
 	if payload == nil then
-		Runtime.finishMutation()
+		Runtime.FinishMutation()
 		return enterPristine(tostring(why or 'character_capture_failed'))
 	end
 
 	-- `creating` stays true until the core answers: the announcement waits on it.
 	send(payload, 'create', function(reason)
-		Runtime.finishMutation()
+		Runtime.FinishMutation()
 		enterPristine(reason)
 	end)
 end
@@ -219,35 +219,35 @@ end
 --- puppet. Answers that the save was asked for; the outcome reaches the channel as `saved`.
 ---@param snapshot AppearanceSnapshot|nil
 ---@return boolean, string|nil
-function Editor.save(snapshot)
+function OpxAppearance.Editor.Save(snapshot)
 	if State.citizenId == nil then return false, 'no_character' end
 	if State.commit ~= nil then return false, 'appearance_busy' end
 	if State.editing or State.creating then return false, 'appearance_busy' end
 
 	local payload, reason
 	if snapshot == nil then
-		payload, reason = Snapshot.capture()
+		payload, reason = Snapshot.Capture()
 	else
-		payload, reason = Snapshot.forNetwork(snapshot)
+		payload, reason = Snapshot.ForNetwork(snapshot)
 	end
 	if payload == nil then return false, tostring(reason or 'capture_failed') end
-	if not Snapshot.buildAccepted(payload.gameBuild) then
+	if not Snapshot.BuildAccepted(payload.gameBuild) then
 		return false, 'stored_build_mismatch'
 	end
 
-	if Snapshot.same(payload, State.canonical) then
+	if Snapshot.Same(payload, State.canonical) then
 		-- after this call has answered, or a caller that starts listening on the answer misses it
 		SetTimeout(0, function()
-			Runtime.publish({ ok = true, event = 'saved', citizenId = State.citizenId,
+			Runtime.Publish({ ok = true, event = 'saved', citizenId = State.citizenId,
 				unchanged = true })
 		end)
 		return true
 	end
 
 	send(payload, 'edit', function(failure)
-		Runtime.publish({ ok = false, event = 'saved', error = failure,
+		Runtime.Publish({ ok = false, event = 'saved', error = failure,
 			citizenId = State.citizenId })
-		Runtime.notify('error', 'appearance.saveFailed', { reason = failure })
+		Runtime.Notify('error', 'appearance.saveFailed', { reason = failure })
 	end)
 	return true
 end
@@ -256,7 +256,7 @@ end
 --- for; the save happens when the player confirms it.
 ---@param mode "ripperdoc"|"hairdresser"
 ---@return boolean, string|nil
-function Editor.open(mode)
+function OpxAppearance.Editor.Open(mode)
 	mode = tostring(mode or 'ripperdoc'):lower()
 	if mode ~= 'ripperdoc' and mode ~= 'hairdresser' then return false, 'invalid_mode' end
 	-- before the busy test: the creator counts as a modal on screen, so the general refusal
@@ -271,8 +271,8 @@ function Editor.open(mode)
 	-- Said before the mirror is on screen: an editor that silently opens on the default face
 	-- reads as a wiped character.
 	if type(State.canonical) ~= 'table' or
-		not Snapshot.buildAccepted(State.canonical.gameBuild) then
-		Runtime.notify('warning', 'appearance.editorDefaultFace')
+		not Snapshot.BuildAccepted(State.canonical.gameBuild) then
+		Runtime.Notify('warning', 'appearance.editorDefaultFace')
 	end
 
 	State.editing = true
@@ -282,7 +282,7 @@ function Editor.open(mode)
 		local opened, reason = Open77.appearance.open({ mode = mode })
 		if opened then return end
 		State.editing = false
-		Runtime.notify('error', 'appearance.editorUnavailable', { reason = tostring(reason) })
+		Runtime.Notify('error', 'appearance.editorUnavailable', { reason = tostring(reason) })
 	end)
 	return true
 end
@@ -295,34 +295,34 @@ AddEventHandler('open77:appearance:confirmed', function()
 		-- Not an editor of ours: a queued restore mirror finalised.
 		if State.bootstrapToken == State.restoreToken and State.bootstrapQueued then
 			State.appearanceConfirmed = true
-			Runtime.announce()
+			Runtime.Announce()
 		else
-			Runtime.finishMutation()
+			Runtime.FinishMutation()
 		end
 		return
 	end
 	State.editing = false
 
-	local payload, why = Snapshot.capture()
+	local payload, why = Snapshot.Capture()
 	if payload == nil then
 		why = tostring(why or 'capture_failed')
 		rollback(why)
-		return Runtime.notify('error', 'appearance.captureFailed', { reason = why })
+		return Runtime.Notify('error', 'appearance.captureFailed', { reason = why })
 	end
 
 	-- The core writes nothing and says nothing when the face did not change, so an unchanged
 	-- confirm is completed here rather than waited on.
-	if Snapshot.same(payload, State.canonical) then
-		State.wore()
-		SetTimeout(250, Runtime.finishMutation)
-		Runtime.publish({ ok = true, event = 'saved', citizenId = State.citizenId,
+	if Snapshot.Same(payload, State.canonical) then
+		State.Wore()
+		SetTimeout(250, Runtime.FinishMutation)
+		Runtime.Publish({ ok = true, event = 'saved', citizenId = State.citizenId,
 			unchanged = true })
-		return Runtime.notify('success', 'appearance.saved')
+		return Runtime.Notify('success', 'appearance.saved')
 	end
 
 	send(payload, 'edit', function(reason)
 		rollback(reason)
-		Runtime.notify('error', 'appearance.saveFailed', { reason = reason })
+		Runtime.Notify('error', 'appearance.saveFailed', { reason = reason })
 	end)
 end)
 
@@ -330,7 +330,7 @@ AddEventHandler('open77:appearance:cancelled', function()
 	local creation = State.creatorUp
 	State.editing = false
 	State.creatorUp = false
-	Runtime.finishMutation()
+	Runtime.FinishMutation()
 	-- The character exists; only its face does not. It plays on the default one, and does not
 	-- fail anything: the world is already loaded.
 	if creation then enterPristine('character_creation_cancelled') end
@@ -346,21 +346,21 @@ AddEventHandler('opx77:client:appearanceSaved', function(snapshot)
 	if type(snapshot) ~= 'table' then return end
 	local pending = State.commit
 	State.commit = nil
-	State.adopt(snapshot, nil)
+	State.Adopt(snapshot, nil)
 
-	if pending ~= nil and pending.kind == 'create' then return Editor.finishCreation() end
+	if pending ~= nil and pending.kind == 'create' then return Editor.FinishCreation() end
 	if pending ~= nil then
-		State.wore()
+		State.Wore()
 		-- ReFinalizeState queues work in the character customization system. One frame budget
 		-- before replication is allowed to publish the new look.
-		SetTimeout(250, Runtime.finishMutation)
-		Runtime.publish({ ok = true, event = 'saved', citizenId = State.citizenId })
-		Runtime.notify('success', 'appearance.saved')
+		SetTimeout(250, Runtime.FinishMutation)
+		Runtime.Publish({ ok = true, event = 'saved', citizenId = State.citizenId })
+		Runtime.Notify('success', 'appearance.saved')
 		return
 	end
 
 	-- Stored by something other than this client: put it on the puppet.
-	Runtime.beginRestore(snapshot, nil, 'core')
+	Runtime.BeginRestore(snapshot, nil, 'core')
 end)
 
 --- A refusal from the core, carrying a locale key and the request it answers. The operation
@@ -374,7 +374,7 @@ AddEventHandler('opx77:client:refused', function(code, _, operation)
 	end
 	State.commit = nil
 	if pending.kind == 'create' then return enterPristine(code) end
-	Runtime.publish({ ok = false, event = 'saved', error = code, citizenId = State.citizenId })
+	Runtime.Publish({ ok = false, event = 'saved', error = code, citizenId = State.citizenId })
 	rollback(code)
 	refused(code)
 end)
@@ -397,21 +397,21 @@ local function resumeFamilyTransition()
 	if type(result) ~= 'string' or result == '' then return false end
 	local action, family = result:match('^([^:]+):(.+)$')
 	if action == 'error' then
-		Runtime.notify('error', 'appearance.bodyChangeFailed', { reason = tostring(family) })
+		Runtime.Notify('error', 'appearance.bodyChangeFailed', { reason = tostring(family) })
 		-- no reload is coming: this world is judged again and the face decided on the body it has
 		State.bodyReloading = false
-		Runtime.markWorldEligibility('body_family_transition_error')
+		Runtime.MarkWorldEligibility('body_family_transition_error')
 		if creationStalled() then return enterPristine('body_family_mismatch') end
 		State.settled = false
-		Runtime.resolveCharacter('body_family_transition_error')
+		Runtime.ResolveCharacter('body_family_transition_error')
 		return true
 	end
 	if action ~= 'edit' then
 		Open77.log.debug('body family transition: ' .. result)
 		return true
 	end
-	if not Snapshot.isFamily(family) then
-		Runtime.notify('error', 'appearance.bodyChangeInvalid')
+	if not Snapshot.IsFamily(family) then
+		Runtime.Notify('error', 'appearance.bodyChangeInvalid')
 		return true
 	end
 	-- The editor the creation asked for before the reload. The answer comes with the target
@@ -423,38 +423,38 @@ end
 
 --- One pass of the worker: the unanswered creation, the body transition, the capture deadline.
 local function watch()
-	Runtime.warnUnanswered()
+	Runtime.WarnUnanswered()
 	resumeFamilyTransition()
 
 	-- A creation whose reload entered the world without the transition answering: the editor
 	-- is reopened all the same, or the readiness gate would wait on it for ever.
-	if creationStalled() and Runtime.faceable() then openCreator() end
+	if creationStalled() and Runtime.Faceable() then openCreator() end
 
 	-- Said once per ask, and nothing more: there is no call that withdraws a queued editor.
 	if State.creatorUp and creatorAskedAtMs ~= 0 and not creatorShown then
 		-- a raise counts as on screen, as it does for the panel
 		local read, open = pcall(Open77.appearance.isOpen)
-		local waited = Runtime.nowMs() - creatorAskedAtMs
+		local waited = Runtime.NowMs() - creatorAskedAtMs
 		if not read or open == true then
 			creatorShown = true
 		elseif waited >= CREATOR_UNSEEN_MS then
 			creatorShown = true
 			Open77.log.warn(('the creation editor asked for %d ms ago is not on screen: reset=%s life=%s')
-				:format(waited, tostring(Runtime.playerResetPhase()), tostring(Runtime.lifePhase())))
+				:format(waited, tostring(Runtime.PlayerResetPhase()), tostring(Runtime.LifePhase())))
 		end
 	end
 
 	-- A capture that went out and was never answered. The modal is already closed, so nothing
 	-- is taken away from anybody.
 	local pending = State.commit
-	if pending ~= nil and pending.deadlineMs > 0 and Runtime.nowMs() >= pending.deadlineMs then
+	if pending ~= nil and pending.deadlineMs > 0 and Runtime.NowMs() >= pending.deadlineMs then
 		State.commit = nil
 		if pending.kind == 'create' then
-			Runtime.finishMutation()
+			Runtime.FinishMutation()
 			enterPristine('save_timeout')
 		else
 			rollback('save_timeout')
-			Runtime.notify('error', 'appearance.saveTimedOut')
+			Runtime.Notify('error', 'appearance.saveTimedOut')
 		end
 	end
 end
