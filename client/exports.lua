@@ -174,6 +174,7 @@ exports('openPanel', function()
 	local gone = nobody()
 	if gone then return gone end
 	local invoker = caller()
+	if Runtime.IsDown() then return response(false, { error = 'player_down' }) end
 	local ready, why = Panel.Available()
 	if not ready then return response(false, { error = why }) end
 	if State.citizenId == nil then return response(false, { error = 'no_character' }) end

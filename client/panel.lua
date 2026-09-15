@@ -341,6 +341,7 @@ end
 --- @param generation {integer|nil}
 --- @returns {AppearanceQueued}
 function OpxAppearance.Panel.Open(callerName, generation)
+	if Runtime.IsDown() then return { ok = false, error = 'player_down' } end
 	local ready, why = available()
 	if not ready then return { ok = false, error = why } end
 
@@ -454,7 +455,7 @@ end)
 --- @description Closes any open panel, or opens it for this resource.
 local function pressed()
 	if isOpen() then return Panel.Close('player') end
-	if nativeUp() then return end
+	if nativeUp() or Runtime.IsDown() then return end
 	if State.citizenId == nil then return Runtime.Notify('info', 'error.notLoggedIn') end
 	local result = Panel.Open(RESOURCE, nil)
 	if result.ok ~= true then Runtime.Notify('warning', 'appearance.panel.unavailable') end

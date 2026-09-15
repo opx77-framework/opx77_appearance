@@ -27,6 +27,16 @@ local CORE = 'opx77_core'
 local NOTIFY = 'opx77_notify'
 
 --- @author DemiAutomatic
+--- @type {string}
+--- @description The resource that says whether the player is down.
+local MEDIC = 'opx77_medic'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Local event opx77_medic raises when the player goes down or up.
+local EVENT_MEDIC = 'opx77:medic:stateChanged'
+
+--- @author DemiAutomatic
 --- @type {integer}
 --- @description Milliseconds between two looks at a world a face may go on.
 local WATCH_MS = 200
@@ -849,6 +859,55 @@ end
 AddEventHandler('opx77:client:onPlayerUnloaded', unloadCharacter)
 
 --- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether opx77_medic says the player is down right now.
+local down = false
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Medic events heard, so a stale catch-up answer is dropped.
+local medicHeard = 0
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Runtime.IsDown
+--- @description Whether opx77_medic says the local player is down.
+--- @returns {boolean}
+function OpxAppearance.Runtime.IsDown()
+	return down
+end
+
+--- @author DemiAutomatic
+--- @method setDown
+--- @description Records whether the player is down, taking the panel down when down.
+--- @param value {boolean}
+local function setDown(value)
+	down = value == true
+	if down and OpxAppearance.Panel then OpxAppearance.Panel.Close('player_down') end
+end
+
+--- @author DemiAutomatic
+--- @event opx77:medic:stateChanged
+--- @description Closes the panel and refuses every opener while the player is down.
+--- @param payload {any}
+AddEventHandler(EVENT_MEDIC, function(payload)
+	if type(payload) ~= 'table' then return end
+	medicHeard = medicHeard + 1
+	setDown(payload.down == true)
+end)
+
+--- @author DemiAutomatic
+--- @method adoptMedicState
+--- @description Asks opx77_medic once whether the player is already down.
+local function adoptMedicState()
+	CreateThread(function()
+		local heard = medicHeard
+		local result = Runtime.Call(MEDIC, 'isDown')
+		if result == nil or medicHeard ~= heard then return end
+		setDown(result.down == true)
+	end)
+end
+
+--- @author DemiAutomatic
 --- @method catchUp
 --- @description Adopts a character already loaded before this resource started.
 local function catchUp()
@@ -871,10 +930,11 @@ end)
 
 --- @author DemiAutomatic
 --- @event onClientResourceStart
---- @description Re-establishes the world, the bootstrap and the character.
+--- @description Catches up on opx77_medic, then the world, bootstrap and character.
 --- @param name {string}
 AddEventHandler('onClientResourceStart', function(name)
 	if name ~= RESOURCE then return end
+	adoptMedicState()
 	if type(Open77.appearance) ~= 'table' or type(Open77.session) ~= 'table' or
 		type(Open77.character) ~= 'table' then
 		Open77.log.error('native appearance API unavailable; no face will be stored or restored')
@@ -891,6 +951,10 @@ end)
 --- @description Releases the transaction on this stop; an opx77_core stop is an unload.
 --- @param name {string}
 AddEventHandler('onClientResourceStop', function(name)
+	if name == MEDIC then
+		down = false
+		return
+	end
 	if name == CORE then
 		if State.citizenId ~= nil then unloadCharacter() end
 		return

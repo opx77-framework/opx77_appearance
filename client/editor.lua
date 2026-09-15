@@ -124,7 +124,7 @@ local function openCreator()
 	creatorOpening = true
 	local citizen = State.citizenId
 	CreateThread(function()
-		while not Runtime.Faceable() do
+		while not Runtime.Faceable() or Runtime.IsDown() do
 			if not State.creating or State.citizenId ~= citizen then
 				creatorOpening = false
 				return
@@ -167,6 +167,7 @@ end
 --- @description Answers needsCreation by opening the creation editor for the live character.
 --- @returns {boolean, string|nil}
 function OpxAppearance.Editor.Creator()
+	if Runtime.IsDown() then return false, 'player_down' end
 	if State.citizenId == nil then return false, 'no_character' end
 	if State.creating then return false, 'appearance_busy' end
 	if State.editing or Runtime.ModalOnScreen() then return false, 'appearance_busy' end
@@ -265,6 +266,7 @@ end
 function OpxAppearance.Editor.Open(mode)
 	mode = tostring(mode or 'ripperdoc'):lower()
 	if mode ~= 'ripperdoc' and mode ~= 'hairdresser' then return false, 'invalid_mode' end
+	if Runtime.IsDown() then return false, 'player_down' end
 	if State.creating then return false, 'character_creation_in_progress' end
 	if State.editing or Runtime.ModalOnScreen() then return false, 'appearance_busy' end
 	if State.commit ~= nil then return false, 'appearance_busy' end
@@ -277,6 +279,10 @@ function OpxAppearance.Editor.Open(mode)
 
 	State.editing = true
 	CreateThread(function()
+		if Runtime.IsDown() then
+			State.editing = false
+			return
+		end
 		local opened, reason = Open77.appearance.open({ mode = mode })
 		if opened then return end
 		State.editing = false

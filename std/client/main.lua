@@ -64,6 +64,10 @@ function OpxAppearance.Runtime.FamilyText(family) end
 ---@return boolean
 function OpxAppearance.Runtime.Faceable() end
 
+--- Whether opx77_medic says the local player is down.
+---@return boolean
+function OpxAppearance.Runtime.IsDown() end
+
 --- Whether a native appearance modal is on screen. A raise from `Open77.appearance.isOpen` counts
 --- as on screen: drawing over the mirror, or dressing under it, costs the player more than waiting.
 ---@return boolean
