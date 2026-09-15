@@ -7,6 +7,12 @@ OpxAppearance.Runtime = {}
 ---@type fun(): integer
 OpxAppearance.Runtime.NowMs = nil
 
+--- A configured duration in milliseconds when it is a finite, non-negative number (numeric strings
+--- included); nil otherwise, for the caller to fall back to its shipped value.
+---@param value any
+---@return number|nil
+function OpxAppearance.Runtime.ConfigMs(value) end
+
 --- Whether the local puppet is attached, alive and above zero health.
 ---@type fun(): boolean
 OpxAppearance.Runtime.InGameplay = nil

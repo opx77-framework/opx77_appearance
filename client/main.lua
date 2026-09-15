@@ -101,6 +101,17 @@ end
 OpxAppearance.Runtime.NowMs = nowMs
 
 --- @author DemiAutomatic
+--- @method OpxAppearance.Runtime.ConfigMs
+--- @description Answers a configured duration when it is a finite non-negative number.
+--- @param value {any}
+--- @returns {number|nil}
+function OpxAppearance.Runtime.ConfigMs(value)
+	local wait = tonumber(value)
+	if wait == nil or wait ~= wait or wait < 0 or wait >= math.huge then return nil end
+	return wait
+end
+
+--- @author DemiAutomatic
 --- @method OpxAppearance.Runtime.Publish
 --- @description Raises a decision on the resource's public client event.
 --- @param payload {table}
@@ -169,12 +180,21 @@ end
 OpxAppearance.Runtime.InGameplay = inGameplay
 
 --- @author DemiAutomatic
+--- @method readBootstrap
+--- @description Answers the host's character bootstrap projection, nil when unreadable.
+--- @returns {table|nil}
+local function readBootstrap()
+	local ok, bootstrap = pcall(Open77.session.characterBootstrap)
+	return ok and type(bootstrap) == 'table' and bootstrap or nil
+end
+
+--- @author DemiAutomatic
 --- @method bootstrapPhase
 --- @description Answers the host's character bootstrap phase, or unreadable.
 --- @returns {string}
 local function bootstrapPhase()
-	local ok, bootstrap = pcall(Open77.session.characterBootstrap)
-	return ok and type(bootstrap) == 'table' and tostring(bootstrap.phase) or 'unreadable'
+	local bootstrap = readBootstrap()
+	return bootstrap and tostring(bootstrap.phase) or 'unreadable'
 end
 
 --- @author DemiAutomatic
@@ -182,8 +202,8 @@ end
 --- @description Answers the host's pristine player reset phase, nil where none is projected.
 --- @returns {string|nil}
 local function playerResetPhase()
-	local ok, bootstrap = pcall(Open77.session.characterBootstrap)
-	if not ok or type(bootstrap) ~= 'table' or bootstrap.playerReset == nil then return nil end
+	local bootstrap = readBootstrap()
+	if bootstrap == nil or bootstrap.playerReset == nil then return nil end
 	return tostring(bootstrap.playerReset)
 end
 OpxAppearance.Runtime.PlayerResetPhase = playerResetPhase
@@ -218,9 +238,7 @@ OpxAppearance.Runtime.LifePhase = lifePhase
 --- @description Answers BODY_RELOAD_SETTLE_MS, or the shipped value for an unusable one.
 --- @returns {number}
 local function reloadSettleMs()
-	local wait = tonumber(Config.BODY_RELOAD_SETTLE_MS)
-	if wait == nil or wait ~= wait or wait < 0 or wait >= math.huge then return RELOAD_SETTLE_MS end
-	return wait
+	return Runtime.ConfigMs(Config.BODY_RELOAD_SETTLE_MS) or RELOAD_SETTLE_MS
 end
 
 --- @author DemiAutomatic
@@ -272,9 +290,8 @@ function OpxAppearance.Runtime.BodyFamily()
 		return body.family
 	end
 	if loadedFamily ~= nil then return loadedFamily end
-	local ok, bootstrap = pcall(Open77.session.characterBootstrap)
-	if ok and type(bootstrap) == 'table' and bootstrap.phase == 'ready' and
-		Snapshot.IsFamily(bootstrap.family) then
+	local bootstrap = readBootstrap()
+	if bootstrap and bootstrap.phase == 'ready' and Snapshot.IsFamily(bootstrap.family) then
 		return bootstrap.family
 	end
 	return nil
@@ -597,8 +614,8 @@ end
 --- @returns {number}
 local function rosterWaitMs()
 	local bootstrap = type(Config.BOOTSTRAP) == 'table' and Config.BOOTSTRAP or {}
-	local wait = tonumber(bootstrap.ROSTER_WAIT_MS)
-	if wait == nil or wait ~= wait or wait < 0 or wait >= math.huge then
+	local wait = Runtime.ConfigMs(bootstrap.ROSTER_WAIT_MS)
+	if wait == nil then
 		Open77.log.warn(('BOOTSTRAP.ROSTER_WAIT_MS %s is not a number of ms; waiting %d')
 			:format(tostring(bootstrap.ROSTER_WAIT_MS), ROSTER_WAIT_MS))
 		return ROSTER_WAIT_MS

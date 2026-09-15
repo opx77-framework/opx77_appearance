@@ -340,9 +340,7 @@ end
 --- @returns {number}
 local function debounceMs()
 	local config = type(Config.CLOTHING) == 'table' and Config.CLOTHING or {}
-	local wait = tonumber(config.SAVE_DEBOUNCE_MS)
-	if wait == nil or wait ~= wait or wait < 0 or wait >= math.huge then return SAVE_DEBOUNCE_MS end
-	return wait
+	return Runtime.ConfigMs(config.SAVE_DEBOUNCE_MS) or SAVE_DEBOUNCE_MS
 end
 
 --- @author DemiAutomatic
