@@ -285,10 +285,7 @@ end
 --- @param bucket {integer}
 --- @returns {integer[]}
 local function playersIn(bucket)
-	local reader = type(Open77.players) == 'table' and Open77.players.inBucket or nil
-	if type(reader) ~= 'function' then reader = rawget(_G, 'GetPlayersInBucket') end
-	local read, list = false, nil
-	if type(reader) == 'function' then read, list = pcall(reader, bucket) end
+	local read, list = pcall(Open77.players.inBucket, bucket)
 	if not read or type(list) ~= 'table' then return everybody() end
 	local ids = {}
 	for _, id in ipairs(list) do
@@ -304,10 +301,7 @@ end
 --- @param player {integer}
 --- @returns {integer|nil}
 local function bucketOf(player)
-	local ns = type(Open77.routingBuckets) == 'table' and Open77.routingBuckets or {}
-	local reader = ns.getPlayer or rawget(_G, 'GetPlayerRoutingBucket')
-	if type(reader) ~= 'function' then return nil end
-	local read, bucket = pcall(reader, player)
+	local read, bucket = pcall(Open77.routingBuckets.getPlayer, player)
 	return read and tonumber(bucket) or nil
 end
 
