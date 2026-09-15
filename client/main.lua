@@ -132,7 +132,7 @@ function OpxAppearance.Runtime.Call(resource, name, ...)
 	local result, callError = promise:await()
 	if callError then return nil, tostring(callError) end
 	if type(result) ~= 'table' then return nil, 'malformed_answer' end
-	if result.ok == false then return nil, tostring(result.error or 'refused') end
+	if result.ok ~= true then return nil, tostring(result.error or 'refused') end
 	return result
 end
 
@@ -607,7 +607,8 @@ local function heldRoster()
 	local dispatched, promise = pcall(Open77.exports.call, CORE, 'GetCharacters')
 	if not dispatched or not promise then return nil end
 	local result, callError = promise:await()
-	if callError or type(result) ~= 'table' or type(result.characters) ~= 'table' then
+	if callError or type(result) ~= 'table' or result.ok ~= true or
+		type(result.characters) ~= 'table' then
 		return nil
 	end
 	if #result.characters == 0 and (tonumber(result.slots) or 0) <= 0 then return nil end
