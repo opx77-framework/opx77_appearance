@@ -1,20 +1,19 @@
+--- @author DemiAutomatic
+--- @file locales/en.lua
+--- @description English player-facing text for the appearance resource.
+
 OpxAppearance.Locale.register('en', {
 	['appearance.saved'] = 'Appearance saved.',
 	['appearance.saveFailed'] = 'Appearance was not saved: {reason}',
 	['appearance.saveTimedOut'] = 'Appearance was not saved: nothing answered.',
 	['appearance.captureFailed'] = 'Appearance capture failed: {reason}',
 	['appearance.editorUnavailable'] = 'Appearance editor unavailable: {reason}',
-	['appearance.editorDefaultFace'] =
-		'No saved appearance could be loaded; this editor starts from the default face.',
-	['appearance.rollbackFailed'] =
-		'Your appearance could not be put back on ({reason}): {failure}',
+	['appearance.editorDefaultFace'] = 'No saved appearance could be loaded; this editor starts from the default face.',
+	['appearance.rollbackFailed'] = 'Your appearance could not be put back on ({reason}): {failure}',
 	['appearance.restoreFailed'] = 'Saved appearance could not be restored: {reason}',
-	['appearance.mirrorUnconfirmed'] =
-		'Saved appearance could not be restored: the mirror never confirmed it.',
-	['appearance.catalogueMismatch'] =
-		'Your saved appearance does not fit the current catalogue.',
-	['appearance.buildMismatch'] =
-		'Your saved appearance was made on another game build. Save it again.',
+	['appearance.mirrorUnconfirmed'] = 'Saved appearance could not be restored: the mirror never confirmed it.',
+	['appearance.catalogueMismatch'] = 'Your saved appearance does not fit the current catalogue.',
+	['appearance.buildMismatch'] = 'Your saved appearance was made on another game build. Save it again.',
 
 	['appearance.bodySwitching'] = 'Switching body type. Your appearance will follow.',
 	['appearance.bodyLoadFailed'] = 'Stored body type could not be loaded: {reason}',
@@ -25,15 +24,12 @@ OpxAppearance.Locale.register('en', {
 
 	['appearance.bootstrapFailed'] = 'Character bootstrap failed: {reason}',
 	['appearance.creatorUnavailable'] = 'Appearance editor unavailable: {reason}',
-	['appearance.creatorSwitching'] =
-		"Loading your character's body type. The appearance editor will open next.",
+	['appearance.creatorSwitching'] = "Loading your character's body type. The appearance editor will open next.",
 	['appearance.created'] = 'Appearance saved. Welcome to Night City.',
-	['appearance.creationNotSaved'] =
-		'No appearance was saved ({reason}). You keep the default face for now.',
+	['appearance.creationNotSaved'] = 'No appearance was saved ({reason}). You keep the default face for now.',
 	['appearance.wrongBody'] = 'Your character is {family}. Build that body type.',
 
-	['appearance.clothingRestoreFailed'] =
-		'Your saved clothes could not be put back on. Changes are not saved until you reconnect.',
+	['appearance.clothingRestoreFailed'] = 'Your saved clothes could not be put back on. Changes are not saved until you reconnect.',
 	['appearance.clothingNotSaved'] = 'Your clothes are not being saved right now: {reason}',
 	['clothing.invalid'] = 'Those clothes could not be read.',
 	['clothing.tooLarge'] = 'Those clothes are too many to store.',
@@ -58,16 +54,13 @@ OpxAppearance.Locale.register('en', {
 	['appearance.panel.none'] = 'none',
 	['appearance.panel.otherBuild'] = 'other build',
 	['appearance.panel.noLook'] = 'No face is stored for this character yet.',
-	['appearance.panel.oneLook'] =
-		'One look is stored per character. Confirming the editor replaces it.',
+	['appearance.panel.oneLook'] = 'One look is stored per character. Confirming the editor replaces it.',
 	['appearance.panel.wear'] = 'Wear it',
 	['appearance.panel.editFace'] = 'Edit face',
 	['appearance.panel.editHair'] = 'Hair only',
 	['appearance.panel.editNote'] = "Opens Cyberpunk's own customization mirror.",
-	['appearance.panel.bodyNote'] =
-		'Your body type belongs to the character. Changing it means creating another one.',
-	['appearance.panel.outfitsNote'] =
-		'No outfit picker yet. What you wear is kept with your character.',
+	['appearance.panel.bodyNote'] = 'Your body type belongs to the character. Changing it means creating another one.',
+	['appearance.panel.outfitsNote'] = 'No outfit picker yet. What you wear is kept with your character.',
 	['appearance.panel.wearing'] = 'Putting your saved look back on.',
 	['appearance.panel.wornNow'] = 'Your saved look is back on.',
 	['appearance.panel.alreadyWorn'] = 'You are already wearing it.',

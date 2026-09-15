@@ -1,25 +1,22 @@
+--- @author DemiAutomatic
+--- @file locales/fr.lua
+--- @description French player-facing text for the appearance resource.
+
 OpxAppearance.Locale.register('fr', {
 	['appearance.saved'] = 'Apparence enregistrée.',
 	['appearance.saveFailed'] = 'Apparence non enregistrée : {reason}',
 	['appearance.saveTimedOut'] = 'Apparence non enregistrée : aucune réponse.',
 	['appearance.captureFailed'] = "La capture de l'apparence a échoué : {reason}",
 	['appearance.editorUnavailable'] = "Éditeur d'apparence indisponible : {reason}",
-	['appearance.editorDefaultFace'] =
-		"Aucune apparence enregistrée n'a pu être chargée ; cet éditeur part du visage par défaut.",
-	['appearance.rollbackFailed'] =
-		"Votre apparence n'a pas pu être remise ({reason}) : {failure}",
-	['appearance.restoreFailed'] =
-		"L'apparence enregistrée n'a pas pu être restaurée : {reason}",
-	['appearance.mirrorUnconfirmed'] =
-		"Apparence non restaurée : le miroir de personnalisation ne l'a jamais confirmée.",
-	['appearance.catalogueMismatch'] =
-		'Votre apparence enregistrée ne correspond pas au catalogue actuel.',
-	['appearance.buildMismatch'] =
-		'Votre apparence a été créée sur une autre version du jeu. Enregistrez-la à nouveau.',
+	['appearance.editorDefaultFace'] = "Aucune apparence enregistrée n'a pu être chargée ; cet éditeur part du visage par défaut.",
+	['appearance.rollbackFailed'] = "Votre apparence n'a pas pu être remise ({reason}) : {failure}",
+	['appearance.restoreFailed'] = "L'apparence enregistrée n'a pas pu être restaurée : {reason}",
+	['appearance.mirrorUnconfirmed'] = "Apparence non restaurée : le miroir de personnalisation ne l'a jamais confirmée.",
+	['appearance.catalogueMismatch'] = 'Votre apparence enregistrée ne correspond pas au catalogue actuel.',
+	['appearance.buildMismatch'] = 'Votre apparence a été créée sur une autre version du jeu. Enregistrez-la à nouveau.',
 
 	['appearance.bodySwitching'] = 'Changement de corps. Votre apparence suivra.',
-	['appearance.bodyLoadFailed'] =
-		"Le type de corps enregistré n'a pas pu être chargé : {reason}",
+	['appearance.bodyLoadFailed'] = "Le type de corps enregistré n'a pas pu être chargé : {reason}",
 	['appearance.bodyChangeFailed'] = 'Le changement de type de corps a échoué : {reason}',
 	['appearance.bodyChangeInvalid'] = 'Le changement de type de corps a renvoyé une cible invalide.',
 	['appearance.familyFemale'] = 'féminin',
@@ -27,25 +24,19 @@ OpxAppearance.Locale.register('fr', {
 
 	['appearance.bootstrapFailed'] = "L'initialisation du personnage a échoué : {reason}",
 	['appearance.creatorUnavailable'] = "Éditeur d'apparence indisponible : {reason}",
-	['appearance.creatorSwitching'] =
-		"Chargement du corps de votre personnage. L'éditeur d'apparence s'ouvrira ensuite.",
+	['appearance.creatorSwitching'] = "Chargement du corps de votre personnage. L'éditeur d'apparence s'ouvrira ensuite.",
 	['appearance.created'] = 'Apparence enregistrée. Bienvenue à Night City.',
-	['appearance.creationNotSaved'] =
-		"Aucune apparence enregistrée ({reason}). Vous gardez le visage par défaut pour l'instant.",
+	['appearance.creationNotSaved'] = "Aucune apparence enregistrée ({reason}). Vous gardez le visage par défaut pour l'instant.",
 	['appearance.wrongBody'] = 'Votre personnage est {family}. Construisez ce corps.',
 
-	['appearance.clothingRestoreFailed'] =
-		"Vos vêtements enregistrés n'ont pas pu être remis. " ..
-		"Rien n'est enregistré avant de vous reconnecter.",
-	['appearance.clothingNotSaved'] =
-		'Vos vêtements ne sont pas enregistrés pour le moment : {reason}',
+	['appearance.clothingRestoreFailed'] = "Vos vêtements enregistrés n'ont pas pu être remis. Rien n'est enregistré avant de vous reconnecter.",
+	['appearance.clothingNotSaved'] = 'Vos vêtements ne sont pas enregistrés pour le moment : {reason}',
 	['clothing.invalid'] = "Ces vêtements n'ont pas pu être lus.",
 	['clothing.tooLarge'] = 'Ces vêtements sont trop nombreux pour être enregistrés.',
 	['clothing.stale'] = 'Ces vêtements appartiennent à un autre personnage.',
 
 	['appearance.invalid'] = "Cette apparence n'a pas pu être lue.",
-	['appearance.tooLarge'] =
-		'Cette apparence est trop volumineuse pour être enregistrée.',
+	['appearance.tooLarge'] = 'Cette apparence est trop volumineuse pour être enregistrée.',
 	['error.badRequest'] = "Cette requête n'a pas été comprise.",
 	['error.unavailable'] = 'Indisponible pour le moment.',
 	['error.tooFast'] = 'Ralentissez et réessayez dans un instant.',
@@ -62,19 +53,14 @@ OpxAppearance.Locale.register('fr', {
 	['appearance.panel.stored'] = 'enregistré',
 	['appearance.panel.none'] = 'aucun',
 	['appearance.panel.otherBuild'] = 'autre version',
-	['appearance.panel.noLook'] =
-		"Aucun visage n'est encore enregistré pour ce personnage.",
-	['appearance.panel.oneLook'] =
-		"Un seul visage est enregistré par personnage. Valider l'éditeur le remplace.",
+	['appearance.panel.noLook'] = "Aucun visage n'est encore enregistré pour ce personnage.",
+	['appearance.panel.oneLook'] = "Un seul visage est enregistré par personnage. Valider l'éditeur le remplace.",
 	['appearance.panel.wear'] = 'Le porter',
 	['appearance.panel.editFace'] = 'Modifier le visage',
 	['appearance.panel.editHair'] = 'Cheveux seuls',
-	['appearance.panel.editNote'] =
-		'Ouvre le miroir de personnalisation de Cyberpunk.',
-	['appearance.panel.bodyNote'] =
-		'Votre type de corps appartient au personnage. En changer revient à en créer un autre.',
-	['appearance.panel.outfitsNote'] =
-		'Pas encore de choix de tenue. Ce que vous portez reste avec votre personnage.',
+	['appearance.panel.editNote'] = 'Ouvre le miroir de personnalisation de Cyberpunk.',
+	['appearance.panel.bodyNote'] = 'Votre type de corps appartient au personnage. En changer revient à en créer un autre.',
+	['appearance.panel.outfitsNote'] = 'Pas encore de choix de tenue. Ce que vous portez reste avec votre personnage.',
 	['appearance.panel.wearing'] = 'Remise de votre visage enregistré.',
 	['appearance.panel.wornNow'] = 'Votre visage enregistré est de retour.',
 	['appearance.panel.alreadyWorn'] = 'Vous le portez déjà.',

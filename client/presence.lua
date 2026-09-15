@@ -1,13 +1,6 @@
---- What other players see of this one, and what this one sees of them.
----
---- An observer draws another player only from what it is handed: that player's body
---- (`Open77.puppets.setBody`), each equipment slot (`setSlot`) and the wardrobe (`setWardrobe`).
---- The engine replicates none of them, and the platform's open77_equipment and open77_wardrobe
---- relays that would put the last two on do not run without open77_appearance. So this client
---- publishes its own look -- body, equipment registry, active outfit -- once it is in the world
---- on its settled face, again whenever any of it changes, and after every world entry; it asks
---- for everybody else's after every world entry, whatever state its own look is in; and it puts
---- every look it is handed on that player's proxy. A body reload withdraws the body first.
+--- @author DemiAutomatic
+--- @file client/presence.lua
+--- @description Publishes this player's look and dresses other players' proxies.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -18,59 +11,120 @@ local Runtime = OpxAppearance.Runtime
 OpxAppearance.Presence = {}
 local Presence = OpxAppearance.Presence
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event publishing this player's look to the server.
 local PRESENT = 'opx77_appearance:present'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event withdrawing this player's body.
 local ABSENT = 'opx77_appearance:absent'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event asking the server for everybody else's look.
 local REPLAY = 'opx77_appearance:replay'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event the server answers a publication with.
 local ACK = 'opx77_appearance:presentAck'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event the server answers a replay request with.
 local REPLAYED = 'opx77_appearance:replayed'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event carrying another player's look.
 local LOOK = 'opx77_appearance:look'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event asking every client to publish and ask again.
 local RESEND = 'opx77_appearance:resend'
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The platform's package, which hands looks out while it runs.
 local OFFICIAL = 'open77_appearance'
 
---- How often the look is read and compared with the one published, in ms.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds between two reads of the look.
 local CHECK_MS = 1000
---- How long a publication or a replay request waits for its answer before it goes again, in ms.
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds a publication or replay request waits for its answer.
 local RETRY_MS = 3000
 
+--- @author DemiAutomatic
+--- @type {string[]}
+--- @description The nine equipment slots of a look.
 local SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit',
 	'UnderwearTop', 'UnderwearBottom' }
+
+--- @author DemiAutomatic
+--- @type {string[]}
+--- @description The seven visible slots an outfit overrides.
 local OUTFIT_SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit' }
 
---- What the platform's presentation service states for a character it has no row for.
+--- @author DemiAutomatic
+--- @type {table<string, string|false>}
+--- @description The equipment the platform states for a character without a record.
 local DEFAULT_EQUIPMENT = { Head = false, Face = false, InnerChest = false, OuterChest = false,
 	Legs = false, Feet = false, Outfit = false, UnderwearTop = false,
 	UnderwearBottom = 'Items.Underwear_Basic_01_Bottom' }
 
---- The look last sent and its sequence; the sequences answered. Every world entry and every
---- withdrawal moves the sequence on, so an answer to an older request settles nothing.
----@type table|nil
+--- @author DemiAutomatic
+--- @type {table|nil}
+--- @description The look last sent to the server.
 local sent = nil
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Request sequence, the last acknowledged, the last sent, and when.
 local sequence, acknowledged, sentSequence, sentAtMs = 0, 0, 0, 0
---- The replay this world entry still needs, the request that asked for it, and when.
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description This world entry still needs a replay, its request, and when.
 local replayWanted, replaySequence, replayAtMs = true, 0, 0
---- A failed read is said once, not once a second.
+
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description Failures already said in the log, by key.
 local warned = {}
 
----@param key string
----@param line string
+--- @author DemiAutomatic
+--- @method warnOnce
+--- @description Logs a warning once per key.
+--- @param key {string}
+--- @param line {string}
 local function warnOnce(key, line)
 	if warned[key] then return end
 	warned[key] = true
 	Open77.log.warn(line)
 end
 
---- Whether this client takes part: configured on, and the platform's package not running.
----@return boolean
+--- @author DemiAutomatic
+--- @method enabled
+--- @description Whether this client hands looks out and puts them on.
+--- @returns {boolean}
 local function enabled()
 	if Config.PRESENT_BODIES == false then return false end
 	return GetResourceState(OFFICIAL) ~= 'running'
 end
 
---- Whether two plain values are the same, tables by content.
----@param left any
----@param right any
----@return boolean
+--- @author DemiAutomatic
+--- @method same
+--- @description Whether two plain values are equal, tables by content.
+--- @param left {any}
+--- @param right {any}
+--- @returns {boolean}
 local function same(left, right)
 	if type(left) ~= type(right) then return false end
 	if type(left) ~= 'table' then return left == right end
@@ -83,11 +137,12 @@ local function same(left, right)
 	return true
 end
 
---- A record this body can wear, or false. An item another body family cannot wear is dropped
---- the way the platform's own record drops it; one this client cannot look up is kept.
----@param record any
----@param family string|nil
----@return string|false
+--- @author DemiAutomatic
+--- @method wearable
+--- @description Answers an item this body can wear, or false.
+--- @param record {any}
+--- @param family {string|nil}
+--- @returns {string|false}
 local function wearable(record, family)
 	if type(record) ~= 'string' or record == '' then return false end
 	local equipment = Open77.equipment
@@ -101,9 +156,11 @@ local function wearable(record, family)
 	return record
 end
 
---- What the player wears: every equipment slot stated, and the active outfit with its overrides.
----@param family string|nil
----@return table equipment, table wardrobe
+--- @author DemiAutomatic
+--- @method readClothing
+--- @description Reads every equipment slot and the active outfit for a look.
+--- @param family {string|nil}
+--- @returns {table, table}
 local function readClothing(family)
 	local equipment = type(Open77.equipment) == 'table' and Open77.equipment or nil
 	local called, registry, reason = false, nil, 'Open77.equipment is not on this client'
@@ -143,23 +200,23 @@ local function readClothing(family)
 	return slots, wardrobe
 end
 
---- Whether this player's look should be published: announced into the gameplay world, on its
---- own settled face and its own clothes, with no editor and no body reload in the way.
----@return boolean
+--- @author DemiAutomatic
+--- @method presentable
+--- @description Whether this player's look may be published now.
+--- @returns {boolean}
 local function presentable()
 	if not (State.citizenId ~= nil and State.gameplayAnnounced and State.worldEligible and
 		not State.bodyReloading and not State.editing and not State.creatorUp and
 		State.AppearanceSettled() and Runtime.InGameplay()) then
 		return false
 	end
-	-- last: the clothes are waited on from the moment the look would otherwise go out, and only
-	-- for so long, so a restore that never reads back cannot keep the player undrawn
 	local clothing = OpxAppearance.Clothing
 	return clothing == nil or clothing.Settled()
 end
 
---- Ask for everybody else's look, once per world entry, retried until answered. Only from the
---- gameplay world: the pre-game menu's puppets are nobody's.
+--- @author DemiAutomatic
+--- @method askReplay
+--- @description Asks for everybody else's look once per world entry until answered.
 local function askReplay()
 	if not replayWanted or not State.worldEligible then return end
 	local now = Runtime.NowMs()
@@ -168,7 +225,9 @@ local function askReplay()
 	if TriggerServerEvent(REPLAY, sequence) then replaySequence, replayAtMs = sequence, now end
 end
 
---- Publish this player's look when it changed, or when the last publication went unanswered.
+--- @author DemiAutomatic
+--- @method publish
+--- @description Publishes the look when it changed or went unanswered.
 local function publish()
 	if not presentable() then return end
 	local read, body, reason = pcall(Open77.appearance.captureBody)
@@ -197,22 +256,27 @@ local function publish()
 		:format(tostring(body.family), type(body.groups) == 'table' and #body.groups or 0, sequence))
 end
 
+--- @author DemiAutomatic
+--- @method OpxAppearance.Presence.Check
+--- @description Runs one presence pass: the replay request and the publication.
 function OpxAppearance.Presence.Check()
 	if not enabled() then return end
 	askReplay()
 	publish()
 end
 
---- A new world: this client's proxies of everybody else went with the old one, and its own
---- look is published again.
+--- @author DemiAutomatic
+--- @method OpxAppearance.Presence.Renew
+--- @description Starts over for a new world: publish and ask again.
 function OpxAppearance.Presence.Renew()
 	sequence = sequence + 1
 	sent, acknowledged, sentSequence = nil, 0, 0
 	replayWanted, replaySequence, replayAtMs = true, 0, 0
 end
 
---- The body is going: a reload, or the character leaving. Observers drop their proxy until the
---- next publication.
+--- @author DemiAutomatic
+--- @method OpxAppearance.Presence.Withdraw
+--- @description Withdraws this player's body until the next publication.
 function OpxAppearance.Presence.Withdraw()
 	if not enabled() then return end
 	sequence = sequence + 1
@@ -220,6 +284,11 @@ function OpxAppearance.Presence.Withdraw()
 	TriggerServerEvent(ABSENT)
 end
 
+--- @author DemiAutomatic
+--- @event opx77_appearance:presentAck
+--- @description Records the server's answer to the last publication.
+--- @param value {integer}
+--- @param accepted {boolean}
 RegisterNetEvent(ACK, function(value, accepted)
 	if value ~= sentSequence then return end
 	acknowledged = value
@@ -228,16 +297,25 @@ RegisterNetEvent(ACK, function(value, accepted)
 	end
 end)
 
+--- @author DemiAutomatic
+--- @event opx77_appearance:replayed
+--- @description Records that the server answered this world entry's replay request.
+--- @param value {integer}
 RegisterNetEvent(REPLAYED, function(value)
 	if value == replaySequence then replayWanted = false end
 end)
 
+--- @author DemiAutomatic
+--- @event opx77_appearance:resend
+--- @description Publishes and asks again after the server half restarted.
 RegisterNetEvent(RESEND, function()
 	Presence.Renew()
 end)
 
---- Put a call on a proxy, saying why once when the host refuses it.
----@param name string
+--- @author DemiAutomatic
+--- @method project
+--- @description Makes one puppets call on a proxy, logging a refusal.
+--- @param name {string}
 local function project(name, ...)
 	local puppets = Open77.puppets
 	if type(puppets) ~= 'table' or type(puppets[name]) ~= 'function' then
@@ -251,8 +329,11 @@ local function project(name, ...)
 	end
 end
 
---- Another player's look for its proxy here, or false while that player's body is away. The
---- clothing goes on before the body: the proxy is dressed as soon as all three are there.
+--- @author DemiAutomatic
+--- @event opx77_appearance:look
+--- @description Puts another player's look on its proxy, or drops its body.
+--- @param player {integer|string}
+--- @param look {AppearanceLook|false}
 RegisterNetEvent(LOOK, function(player, look)
 	player = tonumber(player)
 	if not enabled() or player == nil then return end
@@ -273,9 +354,20 @@ RegisterNetEvent(LOOK, function(player, look)
 	project('setBody', player, look.body)
 end)
 
+--- @author DemiAutomatic
+--- @event open77:worldReady
+--- @description Starts presence over for the new world.
 AddEventHandler('open77:worldReady', Presence.Renew)
+
+--- @author DemiAutomatic
+--- @event opx77:client:onPlayerUnloaded
+--- @description Withdraws the body of the character that unloaded.
 AddEventHandler('opx77:client:onPlayerUnloaded', Presence.Withdraw)
 
+--- @author DemiAutomatic
+--- @event onClientResourceStart
+--- @description Starts presence and its once-a-second check.
+--- @param name {string}
 AddEventHandler('onClientResourceStart', function(name)
 	if name ~= GetCurrentResourceName() then return end
 	if Config.PRESENT_BODIES ~= false and GetResourceState(OFFICIAL) == 'running' then

@@ -1,5 +1,6 @@
---- What the client still has to know about the shape of a face. opx77_core validates and
---- stores it; nothing here decides whether a snapshot may be written.
+--- @author DemiAutomatic
+--- @file client/snapshot.lua
+--- @description The shape of a face the client needs: families, builds, network form.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -8,26 +9,34 @@ local Snapshot = OpxAppearance.Snapshot
 
 local Config = OPX_APPEARANCE_CONFIG
 
---- The two body families the engine has, and the two opx77_core's `charInfo.gender` carries.
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description The two body families the engine and charInfo.gender know.
 local FAMILIES = { female = true, male = true }
 
----@param value any
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAppearance.Snapshot.IsFamily
+--- @description Whether a value names one of the two body families.
+--- @param value {any}
+--- @returns {boolean}
 function OpxAppearance.Snapshot.IsFamily(value)
 	return type(value) == 'string' and FAMILIES[value] == true
 end
 
---- Whether a game build is one this resource will read a stored face back into.
----@param value any
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAppearance.Snapshot.BuildAccepted
+--- @description Whether a stored face from this game build may be applied.
+--- @param value {any}
+--- @returns {boolean}
 function OpxAppearance.Snapshot.BuildAccepted(value)
 	return type(value) == 'string' and Config.GAME_BUILDS[value] == true
 end
 
---- The network form of a fresh capture: the four fields that ARE the face, without the
---- editor-only metadata the runtime's value codec will not carry.
----@param capture any  what `Open77.appearance.capture` answered
----@return table|nil payload, string|nil error
+--- @author DemiAutomatic
+--- @method OpxAppearance.Snapshot.ForNetwork
+--- @description Reduces a capture to the four face fields, option names lower-cased.
+--- @param capture {any}
+--- @returns {table|nil, string|nil}
 function OpxAppearance.Snapshot.ForNetwork(capture)
 	if type(capture) ~= 'table' or type(capture.options) ~= 'table' then
 		return nil, 'invalid_snapshot'
@@ -43,8 +52,6 @@ function OpxAppearance.Snapshot.ForNetwork(capture)
 		local option = capture.options[index]
 		if type(option) ~= 'table' then return nil, 'invalid_option' end
 		if type(option.name) ~= 'string' then return nil, 'invalid_option_name' end
-		-- lower-cased here as well as in the core, so `same` can compare a capture with a face
-		-- the core has already canonicalised
 		payload.options[index] = {
 			part = option.part,
 			name = option.name:lower(),
@@ -55,9 +62,10 @@ function OpxAppearance.Snapshot.ForNetwork(capture)
 	return payload
 end
 
---- What the puppet is wearing, in network form. Never raises: the engine's own refusal is
---- answered as an error code.
----@return table|nil payload, string|nil error
+--- @author DemiAutomatic
+--- @method OpxAppearance.Snapshot.Capture
+--- @description Captures the puppet's face in network form, answering refusals as codes.
+--- @returns {table|nil, string|nil}
 function OpxAppearance.Snapshot.Capture()
 	local read, capture, failure = pcall(Open77.appearance.capture)
 	if not read then return nil, 'capture_failed' end
@@ -67,11 +75,12 @@ function OpxAppearance.Snapshot.Capture()
 	return payload
 end
 
---- Whether two snapshots are the same face. Used to skip an apply the puppet does not need
---- and a save the core would answer with silence.
----@param left table|nil
----@param right table|nil
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAppearance.Snapshot.Same
+--- @description Whether two snapshots describe the same face.
+--- @param left {table|nil}
+--- @param right {table|nil}
+--- @returns {boolean}
 function OpxAppearance.Snapshot.Same(left, right)
 	if type(left) ~= 'table' or type(right) ~= 'table' then return false end
 	if left.gameBuild ~= right.gameBuild or left.catalogDigest ~= right.catalogDigest then

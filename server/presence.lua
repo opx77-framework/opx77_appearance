@@ -1,58 +1,100 @@
---- The server half: what every other client needs to draw a player at all.
----
---- On this platform an observer builds its proxy of another player only from what it is handed:
---- the body (family and customization groups, `Open77.puppets.setBody`), each equipment slot
---- (`setSlot`) and the wardrobe (`setWardrobe`). The engine replicates none of them. The
---- platform's open77_appearance, with its open77_equipment and open77_wardrobe relays, does this;
---- this resource replaces all three, so it does too: a player's look to everybody else when it
---- is published, everybody's look to a client that asks after entering a world, and both ways
---- between the players of a routing bucket whenever somebody enters it, because the native
---- roster retires the replicas of a player who changes bucket.
----
---- What a client publishes is its own presentation, read from its own engine, and it can only
---- ever describe that one player: the server takes the player id from the connection and checks
---- the shape, never the truth. Nothing here is stored; a restart asks every client again.
+--- @author DemiAutomatic
+--- @file server/presence.lua
+--- @description Hands every player's look to the other players, in memory.
 
 local Config = OPX_APPEARANCE_CONFIG
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event a client publishes its look on.
 local PRESENT = 'opx77_appearance:present'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event a client withdraws its body on.
 local ABSENT = 'opx77_appearance:absent'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event a client asks for everybody else's look on.
 local REPLAY = 'opx77_appearance:replay'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event answering a publication.
 local ACK = 'opx77_appearance:presentAck'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event answering a replay request.
 local REPLAYED = 'opx77_appearance:replayed'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event carrying one player's look to a viewer.
 local LOOK = 'opx77_appearance:look'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event asking every client to publish and ask again.
 local RESEND = 'opx77_appearance:resend'
 
---- The platform's package: while it runs, it hands looks out and this half stays out of its way.
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The platform's package, which hands looks out while it runs.
 local OFFICIAL = 'open77_appearance'
 
---- The least time between two publications, and between two replay requests, of one player, in
---- ms. A client retries either when nobody answered, so a dropped one costs seconds, not a look.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Least milliseconds between two publications or replays of a player.
 local FLOOR_MS = 500
 
---- The most one encoded body may weigh, as the platform bounds it, and the clothing beside it.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Most bytes one encoded body may weigh.
 local MAX_BODY_BYTES = 49152
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Most bytes the encoded equipment and wardrobe may weigh.
 local MAX_CLOTHING_BYTES = 4096
 
+--- @author DemiAutomatic
+--- @type {string[]}
+--- @description The nine equipment slots of a look.
 local SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit',
 	'UnderwearTop', 'UnderwearBottom' }
+
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description The seven visible slots an outfit may override.
 local OUTFIT = { Head = true, Face = true, InnerChest = true, OuterChest = true, Legs = true,
 	Feet = true, Outfit = true }
 
---- player id -> { body, equipment, wardrobe }, the last look accepted for that player.
----@type table<integer, AppearanceLook>
+--- @author DemiAutomatic
+--- @type {table<integer, AppearanceLook>}
+--- @description The last look accepted for each player.
 local looks = {}
---- player id -> true while that player's body is away: a reload is putting a new puppet up.
----@type table<integer, boolean>
+
+--- @author DemiAutomatic
+--- @type {table<integer, boolean>}
+--- @description Players whose body is away during a reload.
 local absent = {}
---- "kind:player" -> when that player last got through the floor.
----@type table<string, integer>
+
+--- @author DemiAutomatic
+--- @type {table<string, integer>}
+--- @description When each player last got through the floor, by kind.
 local lastAt = {}
---- player id -> true once that player's unreadable look has been said in the log.
----@type table<integer, boolean>
+
+--- @author DemiAutomatic
+--- @type {table<integer, boolean>}
+--- @description Players whose unreadable body was already logged.
 local warned = {}
 
----@return integer
+--- @author DemiAutomatic
+--- @method nowMs
+--- @description Reads the monotonic clock in milliseconds, 0 when unusable.
+--- @returns {integer}
 local function nowMs()
 	local read, seconds = pcall(Open77.time.monotonic)
 	if read and type(seconds) == 'number' and seconds == seconds and seconds >= 0 and
@@ -62,9 +104,15 @@ local function nowMs()
 	return 0
 end
 
---- Whether this half hands looks out now: configured on, and the platform's package not running.
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description The running platform package was already logged.
 local officialSaid = false
----@return boolean
+
+--- @author DemiAutomatic
+--- @method enabled
+--- @description Whether this half hands looks out now.
+--- @returns {boolean}
 local function enabled()
 	if Config.PRESENT_BODIES == false then return false end
 	local read, state = pcall(GetResourceState, OFFICIAL)
@@ -80,9 +128,12 @@ local function enabled()
 	return true
 end
 
----@param kind string
----@param player integer
----@return boolean  true when this one is inside the floor
+--- @author DemiAutomatic
+--- @method cooled
+--- @description Whether a player's request of this kind falls inside the floor.
+--- @param kind {string}
+--- @param player {integer}
+--- @returns {boolean}
 local function cooled(kind, player)
 	local key, atMs = kind .. ':' .. player, nowMs()
 	if lastAt[key] and atMs - lastAt[key] < FLOOR_MS then return true end
@@ -90,28 +141,30 @@ local function cooled(kind, player)
 	return false
 end
 
--- ---------------------------------------------------------------------------
--- Shapes
--- ---------------------------------------------------------------------------
-
----@param value any
----@return boolean
+--- @author DemiAutomatic
+--- @method isInteger
+--- @description Whether a value is a finite integral number.
+--- @param value {any}
+--- @returns {boolean}
 local function isInteger(value)
 	return type(value) == 'number' and value == value and value % 1 == 0
 end
 
---- A native hash as the engine prints it: `0x` and sixteen hex digits, not all zero.
----@param value any
----@return boolean
+--- @author DemiAutomatic
+--- @method fixedHash
+--- @description Whether a value is a non-zero sixteen-digit native hash.
+--- @param value {any}
+--- @returns {boolean}
 local function fixedHash(value)
 	return type(value) == 'string' and #value == 18 and value:sub(1, 2) == '0x' and
 		value:sub(3):match('^%x+$') ~= nil and value ~= '0x0000000000000000'
 end
 
---- The body `Open77.appearance.captureBody` reads: a family and up to 64 groups of head, body
---- or arms customization keys, each a pair of hashes. The platform's own bounds.
----@param body any
----@return boolean
+--- @author DemiAutomatic
+--- @method validBody
+--- @description Whether a body has the shape and bounds the platform accepts.
+--- @param body {any}
+--- @returns {boolean}
 local function validBody(body)
 	if type(body) ~= 'table' or type(body.groups) ~= 'table' then return false end
 	if body.family ~= 'male' and body.family ~= 'female' then return false end
@@ -140,18 +193,21 @@ local function validBody(body)
 	return encoded and type(text) == 'string' and #text <= MAX_BODY_BYTES
 end
 
---- A record name, or false for an empty slot.
----@param value any
----@return boolean
+--- @author DemiAutomatic
+--- @method validItem
+--- @description Whether a value is a record name or false.
+--- @param value {any}
+--- @returns {boolean}
 local function validItem(value)
 	return value == false or (type(value) == 'string' and #value >= 1 and #value <= 160 and
 		value:match('^[%w_%.%-]+$') ~= nil)
 end
 
---- The nine equipment slots, every one stated: a record name, or false. What cannot be read is
---- an empty slot, never a refused look: a hat must not cost the player their body.
----@param value any
----@return table<string, string|false>
+--- @author DemiAutomatic
+--- @method equipmentOf
+--- @description Answers all nine slots, an unreadable one as empty.
+--- @param value {any}
+--- @returns {table<string, string|false>}
 local function equipmentOf(value)
 	local clean = {}
 	for _, slot in ipairs(SLOTS) do
@@ -161,10 +217,11 @@ local function equipmentOf(value)
 	return clean
 end
 
---- The wardrobe: the active outfit index or none, and up to seven outfits by index "0".."6",
---- each overriding the seven visible slots. What cannot be read is left out.
----@param value any
----@return table
+--- @author DemiAutomatic
+--- @method wardrobeOf
+--- @description Answers the readable active outfit and outfit overrides.
+--- @param value {any}
+--- @returns {table}
 local function wardrobeOf(value)
 	local wardrobe = { outfits = {}, names = {} }
 	if type(value) ~= 'table' then return wardrobe end
@@ -184,12 +241,10 @@ local function wardrobeOf(value)
 	return wardrobe
 end
 
--- ---------------------------------------------------------------------------
--- Delivery
--- ---------------------------------------------------------------------------
-
---- Every connected player id; empty when the host cannot say.
----@return integer[]
+--- @author DemiAutomatic
+--- @method everybody
+--- @description Answers every connected player id, empty when unknown.
+--- @returns {integer[]}
 local function everybody()
 	local read, list = pcall(Open77.players.all)
 	local ids = {}
@@ -200,15 +255,15 @@ local function everybody()
 	return ids
 end
 
---- One player's look to one viewer. The owner is never sent its own: the platform's relays
---- ignore their own player, whose look is the engine's, not a record.
----@param viewer integer
----@param player integer
+--- @author DemiAutomatic
+--- @method deliver
+--- @description Sends one player's look, or its absence, to one other viewer.
+--- @param viewer {integer}
+--- @param player {integer}
 local function deliver(viewer, player)
 	if viewer == player then return end
 	local look = looks[player]
 	if look == nil then return end
-	-- not `absent and false or look`: that reads the look back whenever the body is away
 	if absent[player] then
 		TriggerClientEvent(LOOK, viewer, player, false)
 	else
@@ -216,15 +271,19 @@ local function deliver(viewer, player)
 	end
 end
 
---- A player's look to everybody else.
----@param player integer
+--- @author DemiAutomatic
+--- @method broadcast
+--- @description Sends a player's look to everybody else.
+--- @param player {integer}
 local function broadcast(player)
 	for _, other in ipairs(everybody()) do deliver(other, player) end
 end
 
---- The ids of the players in a routing bucket, or everybody when the host cannot say.
----@param bucket integer
----@return integer[]
+--- @author DemiAutomatic
+--- @method playersIn
+--- @description Answers the players in a routing bucket, or everybody when unknown.
+--- @param bucket {integer}
+--- @returns {integer[]}
 local function playersIn(bucket)
 	local reader = type(Open77.players) == 'table' and Open77.players.inBucket or nil
 	if type(reader) ~= 'function' then reader = rawget(_G, 'GetPlayersInBucket') end
@@ -239,9 +298,11 @@ local function playersIn(bucket)
 	return ids
 end
 
---- The bucket a player is in now, or nil where the host cannot say.
----@param player integer
----@return integer|nil
+--- @author DemiAutomatic
+--- @method bucketOf
+--- @description Answers a player's current routing bucket, nil when unknown.
+--- @param player {integer}
+--- @returns {integer|nil}
 local function bucketOf(player)
 	local ns = type(Open77.routingBuckets) == 'table' and Open77.routingBuckets or {}
 	local reader = ns.getPlayer or rawget(_G, 'GetPlayerRoutingBucket')
@@ -250,7 +311,10 @@ local function bucketOf(player)
 	return read and tonumber(bucket) or nil
 end
 
----@param player integer
+--- @author DemiAutomatic
+--- @method forget
+--- @description Forgets a departed player's look, absence, warning and floors.
+--- @param player {integer}
 local function forget(player)
 	looks[player], absent[player], warned[player] = nil, nil, nil
 	local prefix = ':' .. player
@@ -259,6 +323,13 @@ local function forget(player)
 	end
 end
 
+--- @author DemiAutomatic
+--- @event opx77_appearance:present
+--- @description Accepts a player's own look, hands it on and answers.
+--- @param body {AppearanceBody}
+--- @param equipment {table}
+--- @param wardrobe {table}
+--- @param sequence {integer}
 RegisterNetEvent(PRESENT, function(body, equipment, wardrobe, sequence)
 	local player = tonumber(source)
 	if not player or player <= 0 or not isInteger(sequence) or sequence < 1 then return end
@@ -270,7 +341,6 @@ RegisterNetEvent(PRESENT, function(body, equipment, wardrobe, sequence)
 			Open77.log.warn(('player %d published a body this server cannot read; other players ' ..
 				'cannot draw them'):format(player))
 		end
-		-- answered all the same: resending the same unreadable body every few seconds helps nobody
 		TriggerClientEvent(ACK, player, sequence, false)
 		return
 	end
@@ -289,8 +359,10 @@ RegisterNetEvent(PRESENT, function(body, equipment, wardrobe, sequence)
 		:format(player, body.family, #body.groups))
 end)
 
---- A client that entered a world holds no proxy of anybody: it gets every look there is, whatever
---- state its own is in.
+--- @author DemiAutomatic
+--- @event opx77_appearance:replay
+--- @description Sends every held look to a client that entered a world.
+--- @param sequence {integer}
 RegisterNetEvent(REPLAY, function(sequence)
 	local player = tonumber(source)
 	if not player or player <= 0 or not isInteger(sequence) then return end
@@ -299,8 +371,9 @@ RegisterNetEvent(REPLAY, function(sequence)
 	TriggerClientEvent(REPLAYED, player, sequence)
 end)
 
---- The player's body is being reloaded: observers drop their proxy and get it back with the look
---- that follows.
+--- @author DemiAutomatic
+--- @event opx77_appearance:absent
+--- @description Withdraws a reloading player's body from every observer.
 RegisterNetEvent(ABSENT, function()
 	local player = tonumber(source)
 	if not player or player <= 0 or not enabled() or absent[player] then return end
@@ -308,12 +381,15 @@ RegisterNetEvent(ABSENT, function()
 	if looks[player] ~= nil then broadcast(player) end
 end)
 
---- The native roster retires a player's replicas when that player changes bucket, and nothing
---- the engine replicates rebuilds them: both sides get each other's looks again.
+--- @author DemiAutomatic
+--- @event onPlayerBucketChange
+--- @description Hands a player and its new bucket's players each other's looks.
+--- @param player {integer}
+--- @param bucket {integer}
+--- @param previous {integer}
 AddEventHandler('onPlayerBucketChange', function(player, bucket, previous)
 	player, bucket, previous = tonumber(player), tonumber(bucket), tonumber(previous)
 	if not player or player <= 0 or not bucket or bucket == previous or not enabled() then return end
-	-- a queued move another one has already superseded, or a player who has left since
 	local read, name = pcall(Open77.players.name, player)
 	if not read or name == nil then return end
 	local current = bucketOf(player)
@@ -326,22 +402,32 @@ AddEventHandler('onPlayerBucketChange', function(player, bucket, previous)
 	end
 end)
 
+--- @author DemiAutomatic
+--- @event onPlayerDisconnected
+--- @description Forgets a departing player.
+--- @param playerId {integer|string}
 AddEventHandler('onPlayerDisconnected', function(playerId)
 	local player = tonumber(playerId)
 	if player then forget(player) end
 end)
 
+--- @author DemiAutomatic
+--- @event playerDropped
+--- @description Forgets a dropped player.
 AddEventHandler('playerDropped', function()
 	local player = tonumber(source)
 	if player then forget(player) end
 end)
 
+--- @author DemiAutomatic
+--- @event onResourceStart
+--- @description Asks every client to publish and ask again after a start.
+--- @param name {string}
 AddEventHandler('onResourceStart', function(name)
 	if name ~= GetCurrentResourceName() then return end
 	if Config.PRESENT_BODIES == false then
 		Open77.log.info('PRESENT_BODIES is false: another resource must hand every look out')
 		return
 	end
-	-- nothing survives a restart here: every client already in the world publishes and asks again
 	TriggerClientEvent(RESEND, -1)
 end)

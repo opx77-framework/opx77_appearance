@@ -1,4 +1,6 @@
---- The appearance panel, drawn by opx77_menu. Optional: a missing menu costs one log line.
+--- @author DemiAutomatic
+--- @file client/panel.lua
+--- @description The appearance panel, a list drawn by opx77_menu for one caller.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -11,63 +13,106 @@ local Editor = OpxAppearance.Editor
 OpxAppearance.Panel = {}
 local Panel = OpxAppearance.Panel
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description This resource's own name, which owns the menu events.
 local RESOURCE = GetCurrentResourceName()
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The resource that draws the panel.
 local MENU = 'opx77_menu'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The menu id the panel's list carries.
 local MENU_ID = 'appearance'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Local event opx77_menu raises for the panel's rows and closes.
 local EVENT = 'opx77_appearance:panel'
 
---- How often the open panel looks at the native modal, and how often at its owner, in ms.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds between two looks at the native modal.
 local WATCH_MS = 200
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds between two checks of the panel's owner.
 local OWNER_SWEEP_MS = 1000
 
---- opx77_menu's own close reasons that mean the player took the list down.
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description opx77_menu close reasons that mean the player took the list down.
 local CLOSED_BY_PLAYER = { pause = true, back = true, item = true, select = true }
 
---- The resource the open panel belongs to, the generation of its code, and the menu handle.
---- `owner` is set the moment `openPanel` is accepted; `handle` only once opx77_menu answers.
----@type string|nil
+--- @author DemiAutomatic
+--- @type {string|nil}
+--- @description The resource the open panel belongs to.
 local owner
----@type integer|nil
+
+--- @author DemiAutomatic
+--- @type {integer|nil}
+--- @description The generation of the owner's code when it opened the panel.
 local ownerGeneration
----@type integer|nil  opx77_menu's handle for the open list
+
+--- @author DemiAutomatic
+--- @type {integer|nil}
+--- @description opx77_menu's handle for the open list, once it answered.
 local handle
 
---- Rises on every open and every close, so an `open` still in flight when the panel was
---- taken down finds its session gone and takes the list back down instead of adopting it.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Panel session, moved on by every open and every close.
 local session = 0
 
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description When the owner is next checked, in milliseconds.
 local nextSweepMs = 0
 
---- One call to opx77_menu. Coroutine only.
----@param name string
----@return table|nil, string|nil
+--- @author DemiAutomatic
+--- @method menu
+--- @description Calls one opx77_menu export from a coroutine.
+--- @param name {string}
+--- @returns {table|nil, string|nil}
 local function menu(name, ...)
 	return Runtime.Call(MENU, name, ...)
 end
 
---- Whether the panel can be drawn at all right now.
----@return boolean, string|nil
+--- @author DemiAutomatic
+--- @method available
+--- @description Whether opx77_menu runs to draw the panel.
+--- @returns {boolean, string|nil}
 local function available()
 	if GetResourceState(MENU) ~= 'running' then return false, 'menu_not_running' end
 	return true
 end
 OpxAppearance.Panel.Available = available
 
----@return boolean
+--- @author DemiAutomatic
+--- @method isOpen
+--- @description Whether a panel is up for any caller.
+--- @returns {boolean}
 local function isOpen()
 	return owner ~= nil
 end
 OpxAppearance.Panel.IsOpen = isOpen
 
----@return string|nil
+--- @author DemiAutomatic
+--- @method OpxAppearance.Panel.Owner
+--- @description Answers the resource the open panel belongs to.
+--- @returns {string|nil}
 function OpxAppearance.Panel.Owner()
 	return owner
 end
 
---- Whether a native modal is on screen. An unreadable answer counts as "on screen": drawing
---- over the mirror costs the player their way out of it.
----@return boolean
+--- @author DemiAutomatic
+--- @method nativeUp
+--- @description Whether a native modal is on screen, an unreadable answer included.
+--- @returns {boolean}
 local function nativeUp()
 	if State.editing or State.creating then return true end
 	local read, open = pcall(Open77.appearance.isOpen)
@@ -76,31 +121,33 @@ local function nativeUp()
 end
 OpxAppearance.Panel.NativeUp = nativeUp
 
--- ---------------------------------------------------------------------------
--- What the menu is handed
--- ---------------------------------------------------------------------------
-
---- The player-facing name of the stored face's condition.
----@return string
+--- @author DemiAutomatic
+--- @method storedText
+--- @description Answers the player-facing condition of the stored face.
+--- @returns {string}
 local function storedText()
 	if type(State.canonical) ~= 'table' then return locale('appearance.panel.none') end
 	if State.Wearing() then return locale('appearance.panel.worn') end
 	return locale('appearance.panel.stored')
 end
 
----@return string
+--- @author DemiAutomatic
+--- @method familyText
+--- @description Answers the player-facing body family of the character.
+--- @returns {string}
 local function familyText()
 	return State.family ~= nil and Runtime.FamilyText(State.family) or '-'
 end
 
---- The saved look, and the two ways into Cyberpunk's own mirror.
----@return table[]  opx77_menu items
+--- @author DemiAutomatic
+--- @method looksItems
+--- @description Builds the saved look row and the two native editor rows.
+--- @returns {table[]}
 local function looksItems()
 	local stored = type(State.canonical) == 'table' and State.canonical or nil
 	local fits = stored ~= nil and Snapshot.BuildAccepted(stored.gameBuild)
 	local busy = State.commit ~= nil or nativeUp()
 
-	-- the reason is the row's value: a greyed row with nothing beside it reads as broken
 	local blocked
 	if stored == nil then
 		blocked = locale('appearance.panel.none')
@@ -127,8 +174,10 @@ local function looksItems()
 	}
 end
 
---- The body family, shown and not offered: opx77_core owns it.
----@return table[]  opx77_menu items
+--- @author DemiAutomatic
+--- @method bodyItems
+--- @description Builds the body family rows, shown and not offered.
+--- @returns {table[]}
 local function bodyItems()
 	return {
 		{ separator = true, label = locale('appearance.panel.bodyNote') },
@@ -137,8 +186,10 @@ local function bodyItems()
 	}
 end
 
--- TODO(outfits): needs a clothing catalogue with labels, which no resource publishes today.
----@return table[]  opx77_menu items
+--- @author DemiAutomatic
+--- @method outfitsItems
+--- @description Builds the outfits row that says no picker exists yet.
+--- @returns {table[]}
 local function outfitsItems()
 	return {
 		{ id = 'soon', label = locale('appearance.panel.outfitsNote'),
@@ -146,8 +197,10 @@ local function outfitsItems()
 	}
 end
 
---- The whole panel, already rendered: opx77_menu holds no catalogue and no rule of ours.
----@return table  an opx77_menu spec
+--- @author DemiAutomatic
+--- @method spec
+--- @description Builds the whole rendered opx77_menu spec of the panel.
+--- @returns {table}
 local function spec()
 	return {
 		id = MENU_ID,
@@ -164,7 +217,9 @@ local function spec()
 	}
 end
 
---- Rebuild the open panel where the player is standing in it. Best-effort.
+--- @author DemiAutomatic
+--- @method OpxAppearance.Panel.Refresh
+--- @description Redraws the open panel where the player stands in it.
 function OpxAppearance.Panel.Refresh()
 	if handle == nil then return end
 	local mine = session
@@ -175,9 +230,11 @@ function OpxAppearance.Panel.Refresh()
 	end)
 end
 
---- The transient line under the list. Best-effort: it only reports.
----@param text string
----@param ok boolean
+--- @author DemiAutomatic
+--- @method status
+--- @description Shows a transient status line under the open list.
+--- @param text {string}
+--- @param ok {boolean}
 local function status(text, ok)
 	if handle == nil then return end
 	local mine = session
@@ -188,14 +245,11 @@ local function status(text, ok)
 	end)
 end
 
--- ---------------------------------------------------------------------------
--- Opening and closing
--- ---------------------------------------------------------------------------
-
---- Forget the open panel and say so. Answers the menu handle still to be taken down, which
---- the caller closes from a coroutine.
----@param reason AppearancePanelReason
----@return integer|nil  the menu handle still to be taken down
+--- @author DemiAutomatic
+--- @method takeDown
+--- @description Forgets the open panel, says so, and answers the handle to close.
+--- @param reason {AppearancePanelReason}
+--- @returns {integer|nil}
 local function takeDown(reason)
 	if owner == nil then return nil end
 	local open = handle
@@ -206,24 +260,30 @@ local function takeDown(reason)
 	return open
 end
 
---- Take a list down through opx77_menu. Coroutine only.
----@param open integer|nil
+--- @author DemiAutomatic
+--- @method closeMenu
+--- @description Takes a list down through opx77_menu from a coroutine.
+--- @param open {integer|nil}
 local function closeMenu(open)
 	if open == nil then return end
 	local _, failure = menu('close', open)
 	if failure ~= nil then Open77.log.debug('the panel was already down: ' .. failure) end
 end
 
---- Take the panel down, for a reason of this resource's own.
----@param reason AppearancePanelReason
+--- @author DemiAutomatic
+--- @method OpxAppearance.Panel.Close
+--- @description Takes the panel down for a reason of this resource's own.
+--- @param reason {AppearancePanelReason}
 function OpxAppearance.Panel.Close(reason)
 	local open = takeDown(reason)
 	if open == nil then return end
 	CreateThread(function() closeMenu(open) end)
 end
 
---- opx77_menu took the list down by itself: Escape, BACK at the root, or a sweep of its own.
----@param reason string|nil
+--- @author DemiAutomatic
+--- @method menuClosed
+--- @description Records that opx77_menu took the list down by itself.
+--- @param reason {string|nil}
 local function menuClosed(reason)
 	if owner == nil then return end
 	session = session + 1
@@ -232,14 +292,14 @@ local function menuClosed(reason)
 		reason = CLOSED_BY_PLAYER[reason] and 'player' or 'menu_closed' })
 end
 
---- One pass while the panel is up. Answers false once the panel has gone.
----@param atMs integer
----@return boolean
+--- @author DemiAutomatic
+--- @method tick
+--- @description Closes the panel under a native modal or a gone owner.
+--- @param atMs {integer}
+--- @returns {boolean}
 local function tick(atMs)
 	if owner == nil then return false end
 
-	-- Cyberpunk's own mirror is the only face editor there is, and a list left drawn over it
-	-- takes the arrow keys away from it.
 	if nativeUp() then
 		Panel.Close('appearance_busy')
 		return false
@@ -262,9 +322,10 @@ local function tick(atMs)
 	return true
 end
 
---- Watch one open panel, and end with it. A raise from a host call would otherwise end this
---- loop for the session, so it is logged once per run of failures and the loop carries on.
----@param mine integer
+--- @author DemiAutomatic
+--- @method watch
+--- @description Watches one open panel session until it ends.
+--- @param mine {integer}
 local function watch(mine)
 	local failing = false
 	while session == mine do
@@ -281,15 +342,16 @@ local function watch(mine)
 	end
 end
 
---- Put the panel up for one caller. `ok = true` means asked: the list opens on a thread.
----@param callerName string
----@param generation integer|nil
----@return AppearanceQueued
+--- @author DemiAutomatic
+--- @method OpxAppearance.Panel.Open
+--- @description Puts the panel up for a caller, or redraws it.
+--- @param callerName {string}
+--- @param generation {integer|nil}
+--- @returns {AppearanceQueued}
 function OpxAppearance.Panel.Open(callerName, generation)
 	local ready, why = available()
 	if not ready then return { ok = false, error = why } end
 
-	-- already yours: there is no level a caller can ask for, so a reopen is a redraw
 	if isOpen() then
 		Panel.Refresh()
 		return { ok = true, queued = true, citizenId = State.citizenId }
@@ -317,13 +379,10 @@ function OpxAppearance.Panel.Open(callerName, generation)
 	return { ok = true, queued = true, citizenId = State.citizenId }
 end
 
--- ---------------------------------------------------------------------------
--- What the rows do
--- ---------------------------------------------------------------------------
-
---- Open Cyberpunk's own mirror. The panel is taken down and opx77_menu has answered the
---- close BEFORE the modal is asked for: a list left up drives the arrow keys under it.
----@param mode AppearanceMode
+--- @author DemiAutomatic
+--- @method openNative
+--- @description Takes the panel down, then asks for the native editor.
+--- @param mode {AppearanceMode}
 local function openNative(mode)
 	local open = takeDown('caller')
 	CreateThread(function()
@@ -334,8 +393,9 @@ local function openNative(mode)
 	end)
 end
 
---- Put the stored face back on the puppet. Refused while it is already worn: applying a face
---- the puppet wears arms a native watchdog with nothing to open for.
+--- @author DemiAutomatic
+--- @method wearStored
+--- @description Puts the stored face back on the puppet from the panel.
 local function wearStored()
 	if type(State.canonical) ~= 'table' then
 		return status(locale('appearance.panel.noLook'), false)
@@ -350,7 +410,6 @@ local function wearStored()
 		return status(locale('appearance.panel.busy'), false)
 	end
 
-	-- read before the yield: a character change during the apply is a different face
 	local snapshot, citizen = State.canonical, State.citizenId
 	status(locale('appearance.panel.wearing'), true)
 	CreateThread(function()
@@ -367,8 +426,10 @@ local function wearStored()
 	end)
 end
 
---- A row of this resource's own panel. The close is matched on the owner rather than the
---- handle: opx77_menu can take a list down before its `open` export has answered.
+--- @author DemiAutomatic
+--- @event opx77_appearance:panel
+--- @description Runs the panel row the player selected, or records the menu's close.
+--- @param payload {table}
 AddEventHandler(EVENT, function(payload)
 	if type(payload) ~= 'table' or payload.menu ~= MENU_ID then return end
 	if payload.owner ~= RESOURCE then return end
@@ -380,7 +441,10 @@ AddEventHandler(EVENT, function(payload)
 	if id == 'editHair' then return openNative('hairdresser') end
 end)
 
---- The panel draws one character's face, so it follows every decision about it.
+--- @author DemiAutomatic
+--- @event opx77:appearance
+--- @description Redraws or closes the panel after a decision about the face.
+--- @param payload {AppearanceEvent}
 AddEventHandler(Config.EVENT, function(payload)
 	if owner == nil or type(payload) ~= 'table' then return end
 	local name = payload.event
@@ -388,6 +452,9 @@ AddEventHandler(Config.EVENT, function(payload)
 	if name == 'saved' or name == 'restored' or name == 'applied' then Panel.Refresh() end
 end)
 
+--- @author DemiAutomatic
+--- @event opx77:client:onPlayerUnloaded
+--- @description Takes the panel down when the character unloads.
 AddEventHandler('opx77:client:onPlayerUnloaded', function()
 	Panel.Close('no_character')
 end)

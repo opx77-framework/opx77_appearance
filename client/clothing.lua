@@ -1,15 +1,6 @@
---- What the live character wears: put back on its puppet from opx77_core, and handed back to
---- the core when the player changes it.
----
---- The core carries one record per character in `PlayerData.clothing` -- the nine equipment
---- slots, the seven wardrobe outfits and the active one -- as the record, `false` when none is
---- stored, or nil when it could not read one or stores no clothing at all. A record goes on the
---- puppet once this world entry's face has settled and the readiness announcement is out, which
---- is where the platform's presentation service states its own; `false` puts on the record that
---- service gives a character it has no row for; nil touches nothing and saves nothing. Once the
---- puppet reads back what was put on, what it wears is read every second and sent when it has
---- held a new value for `CLOTHING.SAVE_DEBOUNCE_MS`, and never while a modal, a body reload or a
---- face commit is in the way.
+--- @author DemiAutomatic
+--- @file client/clothing.lua
+--- @description Puts the character's stored clothing on its puppet and saves changes.
 
 OpxAppearance = OpxAppearance or {}
 
@@ -20,35 +11,70 @@ local Runtime = OpxAppearance.Runtime
 OpxAppearance.Clothing = {}
 local Clothing = OpxAppearance.Clothing
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Net event that sends a clothing record to opx77_core.
 local SAVE = 'opx77:server:saveClothing'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The operation a core refusal names when it answers a clothing save.
 local SAVE_OPERATION = 'saveClothing'
 
---- The platform's package: while it runs it owns the clothing, as it does the looks.
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The platform's package, which owns clothing while it runs.
 local OFFICIAL = 'open77_appearance'
 
---- How often the puppet is looked at, in ms: the cadence the look is published at.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds between two looks at what the puppet wears.
 local CHECK_MS = 1000
---- Put-ons before a world entry gives up on the stored record, and how long each may take to
---- read back before it goes on again, in ms.
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Put-ons before a world entry gives up on the record.
 local RESTORE_ATTEMPTS = 5
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds a put-on may take to read back before the next.
 local VERIFY_MS = 2000
---- The longest the published look waits for the clothes to go on, in ms. A player drawn in the
---- wrong clothes for a moment beats a player not drawn at all.
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Longest milliseconds the published look waits for the clothes.
 local PRESENCE_HOLD_MS = 15000
---- Failed saves in a row -- unanswered, or refused as unavailable -- before this character
---- stops saving until it is loaded again.
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Failed saves in a row before this character stops saving.
 local STRIKES = 2
 
---- The shipped `CLOTHING.SAVE_DEBOUNCE_MS`, for a config that lost it.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Shipped CLOTHING.SAVE_DEBOUNCE_MS, for a config that lost it.
 local SAVE_DEBOUNCE_MS = 2000
 
+--- @author DemiAutomatic
+--- @type {string[]}
+--- @description The nine equipment slots of a record.
 local SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit',
 	'UnderwearTop', 'UnderwearBottom' }
+
+--- @author DemiAutomatic
+--- @type {string[]}
+--- @description The seven visible slots an outfit overrides.
 local OUTFIT_SLOTS = { 'Head', 'Face', 'InnerChest', 'OuterChest', 'Legs', 'Feet', 'Outfit' }
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Wardrobe outfits, indexed 0 to 6.
 local OUTFITS = 7
 
---- What the platform's presentation service states for a character it has no row for: every
---- slot empty but the basic underwear bottom, and no outfit.
+--- @author DemiAutomatic
+--- @type {AppearanceClothing}
+--- @description The record the platform states for a character without one.
 local DEFAULT = {
 	schemaVersion = 1,
 	equipment = { Head = false, Face = false, InnerChest = false, OuterChest = false,
@@ -57,37 +83,80 @@ local DEFAULT = {
 	wardrobe = { outfits = {} },
 }
 
--- Per character.
-local citizen = nil   ---@type string|nil
-local stored = nil    ---@type table|false|nil  the core's word: a record, false, nil
-local saving = false  -- this character's changes go to the core
-local wanted = nil    ---@type table|nil  what the puppet should wear: last put on, or last sent
-local pending = nil   ---@type { record: table, previous: table|nil, deadlineMs: integer }|nil
-local lastSentAtMs = nil ---@type integer|nil
-local strikes = 0
-local told = false    -- the player has been told this character's clothes are not kept
+--- @author DemiAutomatic
+--- @type {string|nil}
+--- @description The character whose clothing this client handles.
+local citizen = nil
 
--- Per world entry.
----@type "idle"|"waiting"|"restoring"|"worn"|"failed"
+--- @author DemiAutomatic
+--- @type {table|false|nil}
+--- @description The core's record, false when none is stored, nil when absent.
+local stored = nil
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description This character's changes are sent to the core.
+local saving = false
+
+--- @author DemiAutomatic
+--- @type {table|nil}
+--- @description What the puppet should wear: last put on or last sent.
+local wanted = nil
+
+--- @author DemiAutomatic
+--- @type {{ record: table, previous: table|nil, deadlineMs: integer }|nil}
+--- @description The clothing save sent and not yet answered.
+local pending = nil
+
+--- @author DemiAutomatic
+--- @type {integer|nil}
+--- @description When the last clothing save went out, in milliseconds.
+local lastSentAtMs = nil
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Failed saves in a row for this character.
+local strikes = 0
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description The player was told this character's clothes are not kept.
+local told = false
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description This world entry's clothing phase.
 local phase = 'idle'
-local target = nil    ---@type table|nil  the record put on, fitted to the body
+
+--- @author DemiAutomatic
+--- @type {table|nil}
+--- @description The record put on this world entry, fitted to the body.
+local target = nil
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Put-ons spent, when the last went on, when presence first waited.
 local attempts, appliedAtMs, holdFromMs = 0, 0, 0
+
+--- @author DemiAutomatic
+--- @type {table|nil}
+--- @description A changed record seen on the puppet, and since when.
 local candidate, candidateAtMs = nil, 0
 
--- ---------------------------------------------------------------------------
--- Records
--- ---------------------------------------------------------------------------
-
----@param value any
----@return string|false
+--- @author DemiAutomatic
+--- @method recordOf
+--- @description Answers a record name, or false for an empty slot.
+--- @param value {any}
+--- @returns {string|false}
 local function recordOf(value)
 	return type(value) == 'string' and value ~= '' and value or false
 end
 
---- Any clothing-shaped table in the core's canonical form: nine slots stated, outfit keys "0"
---- to "6", empty outfits dropped. Both sides of every comparison go through it.
----@param value any
----@return table|nil
+--- @author DemiAutomatic
+--- @method normalize
+--- @description Puts a clothing-shaped table in the core's canonical form.
+--- @param value {any}
+--- @returns {table|nil}
 local function normalize(value)
 	if type(value) ~= 'table' then return nil end
 	local equipment = type(value.equipment) == 'table' and value.equipment or {}
@@ -105,7 +174,6 @@ local function normalize(value)
 			local shown, any = {}, false
 			for _, slot in ipairs(OUTFIT_SLOTS) do
 				local item = overrides[slot]
-				-- false hides the slot; an absent one shows what is worn
 				if item == false or (type(item) == 'string' and item ~= '') then
 					shown[slot], any = item, true
 				end
@@ -117,10 +185,12 @@ local function normalize(value)
 end
 OpxAppearance.Clothing.Normalize = normalize
 
---- Whether two normalized records are the same clothing.
----@param left table|nil
----@param right table|nil
----@return boolean
+--- @author DemiAutomatic
+--- @method same
+--- @description Whether two normalized records are the same clothing.
+--- @param left {table|nil}
+--- @param right {table|nil}
+--- @returns {boolean}
 local function same(left, right)
 	if type(left) ~= 'table' or type(right) ~= 'table' then return false end
 	for _, slot in ipairs(SLOTS) do
@@ -140,14 +210,13 @@ local function same(left, right)
 end
 OpxAppearance.Clothing.Same = same
 
---- A record this body can wear, or false. An item the engine knows and the family cannot wear
---- goes, as the platform's record shows it; so does one the engine does not know at all -- a
---- game update removed it -- or the record would never read back and nothing would save again.
---- Only what goes on is fitted: storage keeps the item until the player changes something.
----@param record string|false
----@param family string|nil
----@param lookups boolean  the catalogue answers at all; when it does not, nothing is dropped
----@return string|false
+--- @author DemiAutomatic
+--- @method fit
+--- @description Answers an item this body can wear, or false.
+--- @param record {string|false}
+--- @param family {string|nil}
+--- @param lookups {boolean} The catalogue answers at all.
+--- @returns {string|false}
 local function fit(record, family, lookups)
 	if type(record) ~= 'string' then return false end
 	if not lookups then return record end
@@ -159,12 +228,14 @@ local function fit(record, family, lookups)
 	return record
 end
 
----@param record table
----@param family string|nil
----@return table
+--- @author DemiAutomatic
+--- @method fitted
+--- @description Answers a normalized copy of a record fitted to a body family.
+--- @param record {table}
+--- @param family {string|nil}
+--- @returns {table}
 local function fitted(record, family)
 	local out = normalize(record)
-	-- a lookup of the one item every body has tells "unknown item" from "no catalogue right now"
 	local equipment = Open77.equipment
 	local lookups = type(equipment) == 'table' and type(equipment.info) == 'function'
 	if lookups then
@@ -183,12 +254,10 @@ local function fitted(record, family)
 	return out
 end
 
--- ---------------------------------------------------------------------------
--- The puppet
--- ---------------------------------------------------------------------------
-
---- What the puppet wears right now, normalized; nil while any of it cannot be read.
----@return table|nil record, string|nil reason
+--- @author DemiAutomatic
+--- @method readWorn
+--- @description Answers what the puppet wears, normalized, nil while unreadable.
+--- @returns {table|nil, string|nil}
 local function readWorn()
 	local equipment, wardrobe = Open77.equipment, Open77.wardrobe
 	if type(equipment) ~= 'table' or type(wardrobe) ~= 'table' then
@@ -199,7 +268,6 @@ local function readWorn()
 		return nil, tostring(read and reason or registry)
 	end
 	local listed, active, why = pcall(wardrobe.active)
-	-- false is "no outfit"; nil is unreadable
 	if not listed or active == nil then return nil, tostring(listed and why or active) end
 	local record = { equipment = registry, wardrobe = { outfits = {} } }
 	if active ~= false then record.wardrobe.active = active end
@@ -217,20 +285,23 @@ local function readWorn()
 	return normalize(record)
 end
 
---- One native call, its refusal collected rather than raised.
----@param failures string[]
----@param label string
+--- @author DemiAutomatic
+--- @method attempt
+--- @description Makes one native call, collecting its refusal instead of raising.
+--- @param failures {string[]}
+--- @param label {string}
+--- @param fn {function}
 local function attempt(failures, label, fn, ...)
 	local called, ok, reason = pcall(fn, ...)
 	if not called then ok, reason = false, ok end
 	if not ok then failures[#failures + 1] = ('%s: %s'):format(label, tostring(reason)) end
 end
 
---- State a whole record on the puppet: every outfit replaced, the active one chosen, then the
---- nine slots. The wardrobe first, as the platform's relay does: a slot cleared under a shown
---- outfit keeps the outfit's visuals. Acceptance is not completion; `verify` reads it back.
----@param record table
----@return boolean, string|nil
+--- @author DemiAutomatic
+--- @method putOn
+--- @description States a whole record on the puppet, wardrobe first.
+--- @param record {table}
+--- @returns {boolean, string|nil}
 local function putOn(record)
 	local equipment, wardrobe = Open77.equipment, Open77.wardrobe
 	if type(equipment) ~= 'table' or type(wardrobe) ~= 'table' then
@@ -252,19 +323,20 @@ local function putOn(record)
 	return true
 end
 
--- ---------------------------------------------------------------------------
--- The gate
--- ---------------------------------------------------------------------------
-
---- Whether this client dresses and saves anybody at all.
----@return boolean
+--- @author DemiAutomatic
+--- @method enabled
+--- @description Whether this client dresses and saves characters at all.
+--- @returns {boolean}
 local function enabled()
 	local config = type(Config.CLOTHING) == 'table' and Config.CLOTHING or {}
 	if config.PERSIST == false then return false end
 	return GetResourceState(OFFICIAL) ~= 'running'
 end
 
----@return number
+--- @author DemiAutomatic
+--- @method debounceMs
+--- @description Answers CLOTHING.SAVE_DEBOUNCE_MS, or the shipped value for an unusable one.
+--- @returns {number}
 local function debounceMs()
 	local config = type(Config.CLOTHING) == 'table' and Config.CLOTHING or {}
 	local wait = tonumber(config.SAVE_DEBOUNCE_MS)
@@ -272,42 +344,45 @@ local function debounceMs()
 	return wait
 end
 
---- Whether the puppet may be dressed or read for a save now: this character's face settled and
---- announced, a puppet a face may go on, and no modal, face commit or reload in the way. The
---- platform's own wardrobe waits on the same body-mutation barrier.
----@return boolean
+--- @author DemiAutomatic
+--- @method ready
+--- @description Whether the puppet may be dressed or read for a save now.
+--- @returns {boolean}
 local function ready()
 	if State.citizenId == nil or State.citizenId ~= citizen then return false end
 	if not State.gameplayAnnounced or not State.AppearanceSettled() then return false end
 	if State.editing or State.creating or State.creatorUp or State.commit ~= nil then
 		return false
 	end
-	-- a raise counts as on screen, as it does for the panel
 	local read, open = pcall(Open77.appearance.isOpen)
 	if not read or open == true then return false end
 	return Runtime.Faceable()
 end
 
--- ---------------------------------------------------------------------------
--- Restoring
--- ---------------------------------------------------------------------------
-
----@param event string
----@param ok boolean
----@param failure string|nil
+--- @author DemiAutomatic
+--- @method publish
+--- @description Raises a clothing decision on the public event.
+--- @param event {string}
+--- @param ok {boolean}
+--- @param failure {string|nil}
 local function publish(event, ok, failure)
 	Runtime.Publish({ ok = ok, event = event, error = failure, citizenId = citizen })
 end
 
---- Say once per character, on screen, that its clothes are not being kept.
----@param key string
----@param reason string
+--- @author DemiAutomatic
+--- @method tell
+--- @description Tells the player once per character that clothes are not kept.
+--- @param key {string}
+--- @param reason {string}
 local function tell(key, reason)
 	if told then return end
 	told = true
 	Runtime.Notify('warning', key, { reason = reason })
 end
 
+--- @author DemiAutomatic
+--- @method restore
+--- @description Puts the wanted, stored or default record on the puppet.
 local function restore()
 	attempts = attempts + 1
 	local source = wanted or (stored ~= false and stored or DEFAULT)
@@ -321,6 +396,9 @@ local function restore()
 	end
 end
 
+--- @author DemiAutomatic
+--- @method verify
+--- @description Reads the put-on record back, retrying or giving up.
 local function verify()
 	local worn = readWorn()
 	if worn ~= nil and same(worn, target) then
@@ -336,8 +414,6 @@ local function verify()
 		phase = 'waiting'
 		return
 	end
-	-- Nothing is saved for the rest of this world entry: what the puppet wears is not what the
-	-- player chose, and a save now would put it over the stored record.
 	phase = 'failed'
 	Open77.log.warn(('the clothing of %s did not read back after %d put-ons; it is not saved ' ..
 		'until the next world entry'):format(tostring(citizen), attempts))
@@ -345,11 +421,10 @@ local function verify()
 	tell('appearance.clothingRestoreFailed', 'clothing_not_restored')
 end
 
--- ---------------------------------------------------------------------------
--- Saving
--- ---------------------------------------------------------------------------
-
----@param record table
+--- @author DemiAutomatic
+--- @method send
+--- @description Sends a clothing record to opx77_core and waits for its answer.
+--- @param record {table}
 local function send(record)
 	local now = Runtime.NowMs()
 	lastSentAtMs = now
@@ -364,9 +439,11 @@ local function send(record)
 	candidate = nil
 end
 
---- One failed save: the look is tried again after the cooldown, until `STRIKES` in a row.
----@param failed table
----@param reason string
+--- @author DemiAutomatic
+--- @method strike
+--- @description Counts a failed save and stops saving after STRIKES in a row.
+--- @param failed {table}
+--- @param reason {string}
 local function strike(failed, reason)
 	wanted = failed.previous
 	strikes = strikes + 1
@@ -378,6 +455,9 @@ local function strike(failed, reason)
 	tell('appearance.clothingNotSaved', reason)
 end
 
+--- @author DemiAutomatic
+--- @method capture
+--- @description Saves a held change on the puppet once the cooldown passed.
 local function capture()
 	if not saving or pending ~= nil then return end
 	local worn = readWorn()
@@ -394,8 +474,6 @@ local function capture()
 	if now - candidateAtMs < debounceMs() then return end
 	local cooldown = tonumber(Config.SAVE_COOLDOWN_MS) or 2000
 	if lastSentAtMs ~= nil and now - lastSentAtMs < cooldown then return end
-	-- the core already holds it -- a change undone, or a save refused before -- and answers a
-	-- save of what it holds with silence
 	local holds = stored == false and DEFAULT or normalize(stored)
 	if holds ~= nil and same(worn, holds) then
 		wanted, candidate = worn, nil
@@ -404,6 +482,9 @@ local function capture()
 	send(worn)
 end
 
+--- @author DemiAutomatic
+--- @method expire
+--- @description Strikes a clothing save opx77_core did not answer in time.
 local function expire()
 	if pending == nil or Runtime.NowMs() < pending.deadlineMs then return end
 	local failed = pending
@@ -412,20 +493,19 @@ local function expire()
 	strike(failed, 'save_timeout')
 end
 
--- ---------------------------------------------------------------------------
--- The lifecycle
--- ---------------------------------------------------------------------------
-
---- A new world entry: the puppet is pristine, so whatever this character wears goes on again.
---- What was last sent survives it, and so does its answer.
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.EnterWorld
+--- @description Starts a world entry: the pristine puppet is dressed again.
 function OpxAppearance.Clothing.EnterWorld()
 	target, attempts, appliedAtMs, holdFromMs = nil, 0, 0, 0
 	candidate = nil
 	phase = (citizen ~= nil and stored ~= nil and enabled()) and 'waiting' or 'idle'
 end
 
---- The live character changed: adopt its clothing from PlayerData.
----@param playerData table
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Adopt
+--- @description Adopts the new live character's clothing from PlayerData.
+--- @param playerData {table}
 function OpxAppearance.Clothing.Adopt(playerData)
 	citizen = playerData.citizenId
 	local clothing = playerData.clothing
@@ -443,15 +523,19 @@ function OpxAppearance.Clothing.Adopt(playerData)
 	end
 end
 
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Unload
+--- @description Forgets the unloaded character's clothing.
 function OpxAppearance.Clothing.Unload()
 	citizen, stored, saving, wanted, pending, lastSentAtMs = nil, nil, false, nil, nil, nil
 	strikes, told = 0, false
 	Clothing.EnterWorld()
 end
 
---- Whether the published look may go out: the clothes are on, or given up on, or have been
---- waited on for `PRESENCE_HOLD_MS` since the look first asked.
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Settled
+--- @description Whether the published look may go out, clothes on or waited for.
+--- @returns {boolean}
 function OpxAppearance.Clothing.Settled()
 	if phase ~= 'waiting' and phase ~= 'restoring' then return true end
 	local now = Runtime.NowMs()
@@ -459,19 +543,23 @@ function OpxAppearance.Clothing.Settled()
 	return now - holdFromMs >= PRESENCE_HOLD_MS
 end
 
---- For `state`: what this client is doing with the clothes.
----@return string
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Report
+--- @description Answers the clothing phase the state export reports.
+--- @returns {AppearanceClothingPhase}
 function OpxAppearance.Clothing.Report()
 	if phase == 'worn' and pending ~= nil then return 'saving' end
 	if phase == 'worn' and not saving then return 'unsaved' end
 	return phase
 end
 
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Check
+--- @description Runs one clothing pass: deadline, put-on, read-back or save.
 function OpxAppearance.Clothing.Check()
 	expire()
 	if phase == 'idle' or phase == 'failed' then return end
 	if not ready() then
-		-- a change seen before the gate closed has to hold again once it opens
 		candidate = nil
 		return
 	end
@@ -480,10 +568,10 @@ function OpxAppearance.Clothing.Check()
 	capture()
 end
 
--- ---------------------------------------------------------------------------
--- What opx77_core answers
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @event opx77:client:clothingSaved
+--- @description Completes this client's clothing save, or follows one stored elsewhere.
+--- @param record {table}
 AddEventHandler('opx77:client:clothingSaved', function(record)
 	record = normalize(record)
 	if record == nil or citizen == nil then return end
@@ -493,15 +581,18 @@ AddEventHandler('opx77:client:clothingSaved', function(record)
 		return publish('clothingSaved', true)
 	end
 	if pending ~= nil then return end
-	-- stored by something other than this client: the puppet follows it
 	wanted = record
 	if phase == 'worn' or phase == 'failed' then
 		Clothing.EnterWorld()
 	end
 end)
 
---- A refusal naming `saveClothing`. The core refuses a character selection with the same codes,
---- so the operation decides whether it is this one's.
+--- @author DemiAutomatic
+--- @event opx77:client:refused
+--- @description Ends the pending clothing save opx77_core refused.
+--- @param code {string}
+--- @param _ {any}
+--- @param operation {string}
 AddEventHandler('opx77:client:refused', function(code, _, operation)
 	if operation ~= SAVE_OPERATION or pending == nil then return end
 	local failed = pending
@@ -511,10 +602,8 @@ AddEventHandler('opx77:client:refused', function(code, _, operation)
 		wanted = failed.previous
 		return
 	end
-	-- a character change got there first: the save was for the one before
 	if code == 'clothing.stale' or code == 'error.notLoggedIn' then return end
 	if code == 'error.unavailable' then return strike(failed, code) end
-	-- the look itself was refused: it is not tried again, a later change is
 	Open77.log.warn(('clothing save refused: %s'):format(code))
 	publish('clothingSaved', false, code)
 end)
@@ -522,7 +611,6 @@ end)
 CreateThread(function()
 	while true do
 		Wait(CHECK_MS)
-		-- a raise from a host call would end this loop, and with it every restore and save
 		local ok, failure = pcall(Clothing.Check)
 		if not ok then Open77.log.error('clothing worker: ' .. tostring(failure)) end
 	end

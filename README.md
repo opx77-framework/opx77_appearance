@@ -464,15 +464,33 @@ deadlines above, the two retry counts, `BOOTSTRAP` and `CLOTHING`:
 
 | Key | Does | Shipped |
 |---|---|---|
-| `BOOTSTRAP.ROSTER_WAIT_MS` | how long the join waits for `opx77_core`'s roster | `3000` |
-| `BOOTSTRAP.DEFAULT_FAMILY` | the body loaded when no played character is known in time | `"female"` |
-| `PRESENT_BODIES` | hand every player's look to the others; see [How other players see this one](#how-other-players-see-this-one) | `true` |
-| `CLOTHING.PERSIST` | put the stored clothing on and save changes; see [What the character wears](#what-the-character-wears) | `true` |
-| `CLOTHING.SAVE_DEBOUNCE_MS` | how long a clothing change holds before it is saved | `2000` |
+| `LOCALE` | the catalogue player-facing text is read from; server logs stay English | `"en"` |
+| `PRESENT_BODIES` | hand every player's look — body, equipment, outfit — to everybody else and put theirs on here, so other players are drawn at all; stands down by itself while the platform's `open77_appearance` runs, so `false` only when another resource hands looks out. See [How other players see this one](#how-other-players-see-this-one) | `true` |
+| `EVENT` | the client event raised after every decision this resource reaches | `"opx77:appearance"` |
+| `NOTIFY` | whether to raise toasts through `opx77_notify` | `true` |
+| `GAME_BUILDS` | the catalogue builds a stored face may be read back into | `{ ["2.31"] = true }` |
+| `COMMIT_MS` | how long `opx77_core` has to answer a captured face or a clothing save before it is given up on, in ms | `20000` |
+| `SAVE_COOLDOWN_MS` | `opx77_core`'s own cooldown on `appearance.request` and `clothing.request`, in ms; a save inside it is held back rather than refused | `2000` |
+| `CLOTHING.PERSIST` | put the stored clothing on once the face has settled and save changes; `false` leaves clothing to another resource: nothing is put on and nothing is saved. See [What the character wears](#what-the-character-wears) | `true` |
+| `CLOTHING.SAVE_DEBOUNCE_MS` | how long a clothing change has to hold before it is saved, in ms: a player trying three jackets saves the one they kept | `2000` |
+| `RESTORE_RETRIES` | re-dispatches of a join-time restore the native aborted before confirming it | `3` |
+| `FAMILY_RETRIES` | body-family attempts per character: world reloads onto `charInfo.gender`, and creation editors reopened after coming back on the other body; past it the player keeps the body they are on | `2` |
+| `BODY_RELOAD_SETTLE_MS` | after a body reload's new puppet has been through its reset, how long a face and the creation editor may wait for the respawn the platform replays onto it to end (life phase `"alive"`), in ms; a phase that reads `"alive"` sooner ends the wait sooner | `10000` |
+| `CREATION_WAIT_MS` | how long a character with no stored face waits for something to answer `needsCreation`, in ms; past it this resource says nobody did and lets the player in on the default face. It never opens the editor itself | `15000` |
+| `BOOTSTRAP.ROSTER_WAIT_MS` | how long the join waits for `opx77_core`'s roster, in ms, to load the body of the account's most recently played character; past it `DEFAULT_FAMILY` is loaded. The shell keeps its loading cover up until the bootstrap is spent, so keep it short | `3000` |
+| `BOOTSTRAP.DEFAULT_FAMILY` | `"female"` or `"male"`: the body loaded for an account with no played character, or whose roster did not arrive in time | `"female"` |
 
 A `DEFAULT_FAMILY` that is neither `"female"` nor `"male"` is read as `"female"`, with one log
-line; a `ROSTER_WAIT_MS` that is not a number of milliseconds is read as `3000`. The panel has
-nothing to configure here: how it is anchored and how wide it is drawn belong to `opx77_menu`.
+line; a `ROSTER_WAIT_MS` that is not a number of milliseconds is read as `3000`. A
+`BODY_RELOAD_SETTLE_MS` or `CLOTHING.SAVE_DEBOUNCE_MS` that is not a finite number of
+milliseconds is read as the shipped value. The panel has nothing to configure here: how it is
+anchored and how wide it is drawn belong to `opx77_menu`.
+
+## Architecture
+
+Why the code is written the way it is — load order, permissions, the readiness gate, the body
+reload, the generation tokens — is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (French).
+Editor type stubs live in `std/`, with the classes and aliases in `std/types.lua`.
 
 ## Locales
 
