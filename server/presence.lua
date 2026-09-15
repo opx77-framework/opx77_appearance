@@ -242,17 +242,26 @@ local function wardrobeOf(value)
 end
 
 --- @author DemiAutomatic
+--- @method playerIds
+--- @description Answers the numeric player ids of a host list.
+--- @param list {table}
+--- @returns {integer[]}
+local function playerIds(list)
+	local ids = {}
+	for _, id in ipairs(list) do
+		id = tonumber(id)
+		if id then ids[#ids + 1] = id end
+	end
+	return ids
+end
+
+--- @author DemiAutomatic
 --- @method everybody
 --- @description Answers every connected player id, empty when unknown.
 --- @returns {integer[]}
 local function everybody()
 	local read, list = pcall(Open77.players.all)
-	local ids = {}
-	for _, id in ipairs(read and type(list) == 'table' and list or {}) do
-		id = tonumber(id)
-		if id then ids[#ids + 1] = id end
-	end
-	return ids
+	return playerIds(read and type(list) == 'table' and list or {})
 end
 
 --- @author DemiAutomatic
@@ -287,12 +296,7 @@ end
 local function playersIn(bucket)
 	local read, list = pcall(Open77.players.inBucket, bucket)
 	if not read or type(list) ~= 'table' then return everybody() end
-	local ids = {}
-	for _, id in ipairs(list) do
-		id = tonumber(id)
-		if id then ids[#ids + 1] = id end
-	end
-	return ids
+	return playerIds(list)
 end
 
 --- @author DemiAutomatic
