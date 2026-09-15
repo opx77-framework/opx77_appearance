@@ -118,6 +118,7 @@ end
 --- @returns {string|false}
 local function wearable(record, family)
 	if type(record) ~= 'string' or record == '' then return false end
+	record = Clothing.Resolve(record)
 	local equipment = Open77.equipment
 	if family == nil or type(equipment) ~= 'table' or type(equipment.info) ~= 'function' then
 		return record
@@ -181,6 +182,7 @@ local function presentable()
 		State.AppearanceSettled() and Runtime.InGameplay()) then
 		return false
 	end
+	if Clothing.Previewing() then return false end
 	return Clothing.Settled()
 end
 

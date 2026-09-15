@@ -142,12 +142,88 @@ local attempts, appliedAtMs, holdFromMs = 0, 0, 0
 local candidate, candidateAtMs = nil, 0
 
 --- @author DemiAutomatic
+--- @type {string|nil}
+--- @description The resource trying clothes on the puppet, nil while none is.
+local previewOwner = nil
+
+--- @author DemiAutomatic
+--- @type {integer[]}
+--- @description The CRC-32 table a TweakDB id is hashed with.
+local CRC = {}
+for index = 0, 255 do
+	local value = index
+	for _ = 1, 8 do
+		value = (value & 1) == 1 and ((value >> 1) ~ 0xEDB88320) or (value >> 1)
+	end
+	CRC[index] = value
+end
+
+--- @author DemiAutomatic
+--- @type {table<string, string>}
+--- @description Record names by the TweakDB id the registry reads them back as.
+local names = {}
+
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description Record names already hashed into names.
+local learned = {}
+
+--- @author DemiAutomatic
+--- @method tweakId
+--- @description Answers a record name's TweakDB id as the registry prints it: length, then CRC-32.
+--- @param record {string}
+--- @returns {string}
+local function tweakId(record)
+	local crc = 0xFFFFFFFF
+	for index = 1, #record do
+		crc = (crc >> 8) ~ CRC[(crc ~ record:byte(index)) & 0xFF]
+	end
+	return ('0X%08X%08X'):format(#record, crc ~ 0xFFFFFFFF)
+end
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Learn
+--- @description Remembers a record name so its TweakDB id reads back as the name.
+--- @param record {any}
+function OpxAppearance.Clothing.Learn(record)
+	if type(record) ~= 'string' or record == '' or learned[record] then return end
+	if record:match('^0[xX]%x+$') then return end
+	learned[record] = true
+	names[tweakId(record)] = record
+end
+local learn = Clothing.Learn
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Resolve
+--- @description Answers the record name behind a TweakDB id the registry returned, or the value.
+--- @param value {any}
+--- @returns {any}
+function OpxAppearance.Clothing.Resolve(value)
+	if type(value) ~= 'string' or not value:match('^0[xX]%x+$') then return value end
+	local key = value:upper()
+	if names[key] then return names[key] end
+	local equipment = Open77.equipment
+	if type(equipment) == 'table' and type(equipment.info) == 'function' then
+		local read, info = pcall(equipment.info, value)
+		if read and type(info) == 'table' and type(info.record) == 'string' and
+			not info.record:match('^0[xX]%x+$') then
+			learn(info.record)
+			return info.record
+		end
+	end
+	return value
+end
+local resolve = Clothing.Resolve
+
+--- @author DemiAutomatic
 --- @method recordOf
 --- @description Answers a record name, or false for an empty slot.
 --- @param value {any}
 --- @returns {string|false}
 local function recordOf(value)
-	return type(value) == 'string' and value ~= '' and value or false
+	if type(value) ~= 'string' or value == '' then return false end
+	learn(value)
+	return resolve(value)
 end
 
 --- @author DemiAutomatic
@@ -173,7 +249,7 @@ local function normalize(value)
 			for _, slot in ipairs(OUTFIT_SLOTS) do
 				local item = overrides[slot]
 				if item == false or (type(item) == 'string' and item ~= '') then
-					shown[slot], any = item, true
+					shown[slot], any = item and recordOf(item), true
 				end
 			end
 			if any then out.wardrobe.outfits[tostring(index)] = shown end
@@ -395,10 +471,98 @@ local function restore()
 end
 
 --- @author DemiAutomatic
+--- @method shown
+--- @description Answers a short printable form of a plain value.
+--- @param value {any}
+--- @returns {string}
+local function shown(value)
+	if type(value) == 'string' then return value end
+	if type(value) ~= 'table' then return tostring(value) end
+	local parts = {}
+	for key, item in pairs(value) do
+		parts[#parts + 1] = tostring(key) .. '=' .. (type(item) == 'table' and 'table' or tostring(item))
+		if #parts >= 12 then break end
+	end
+	table.sort(parts)
+	return '{' .. table.concat(parts, ',') .. '}'
+end
+
+--- @author DemiAutomatic
+--- @method differences
+--- @description Answers where two plain values differ, as path=left|right lines.
+--- @param left {any}
+--- @param right {any}
+--- @returns {string}
+local function differences(left, right)
+	local out = {}
+	local function walk(path, a, b)
+		if #out >= 16 then return end
+		if type(a) == 'table' and type(b) == 'table' then
+			local keys = {}
+			for key in pairs(a) do keys[key] = true end
+			for key in pairs(b) do keys[key] = true end
+			for key in pairs(keys) do walk(path .. '.' .. tostring(key), a[key], b[key]) end
+		elseif not same(a, b) then
+			out[#out + 1] = ('%s=%s|%s'):format(path, shown(a), shown(b))
+		end
+	end
+	walk('', left, right)
+	return table.concat(out, '; ')
+end
+
+--- @author DemiAutomatic
+--- @method rawWorn
+--- @description Answers what the equipment and wardrobe calls return, before normalizing.
+--- @returns {string}
+local function rawWorn()
+	local equipment, wardrobe = Open77.equipment, Open77.wardrobe
+	if type(equipment) ~= 'table' or type(wardrobe) ~= 'table' then return 'no equipment api' end
+	local parts = {}
+	local read, registry, reason = pcall(equipment.registry)
+	parts[#parts + 1] = 'registry=' .. (read and (shown(registry) .. ' ' .. tostring(reason)) or
+		('raised ' .. tostring(registry)))
+	local listed, active, why = pcall(wardrobe.active)
+	parts[#parts + 1] = 'active=' .. (listed and (type(active) .. ':' .. tostring(active) .. ' ' .. tostring(why))
+		or ('raised ' .. tostring(active)))
+	local opened, outfit, failure = pcall(wardrobe.outfit, 0)
+	if not opened or type(outfit) ~= 'table' then
+		parts[#parts + 1] = 'outfit0=' .. tostring(opened and failure or outfit) .. ' ' .. type(outfit)
+	else
+		local keys = {}
+		for key, value in pairs(outfit) do keys[#keys + 1] = tostring(key) .. ':' .. type(value) end
+		table.sort(keys)
+		parts[#parts + 1] = 'outfit0 api={' .. table.concat(keys, ',') .. '}'
+		if type(outfit.registry) == 'function' then
+			local got, overrides, missing = pcall(outfit.registry)
+			parts[#parts + 1] = 'outfit0.registry=' .. (got and (shown(overrides) .. ' ' .. tostring(missing))
+				or ('raised ' .. tostring(overrides)))
+		end
+	end
+	return table.concat(parts, ' / ')
+end
+
+--- @author DemiAutomatic
+--- @method diagnose
+--- @description Logs why the clothing did not read back and tells the server's log too.
+--- @param worn {table|nil}
+--- @param reason {string|nil}
+local function diagnose(worn, reason)
+	local text = ('%s attempt %d/%d: '):format(tostring(citizen), attempts, RESTORE_ATTEMPTS)
+	if worn == nil then
+		text = text .. 'unreadable (' .. tostring(reason) .. ')'
+	else
+		text = text .. 'worn|target ' .. differences(worn, target)
+	end
+	text = text .. ' // raw ' .. rawWorn()
+	Open77.log.warn('clothing read-back: ' .. text)
+	TriggerServerEvent('opx77_appearance:clothingDiagnostic', text)
+end
+
+--- @author DemiAutomatic
 --- @method verify
 --- @description Reads the put-on record back, retrying or giving up.
 local function verify()
-	local worn = readWorn()
+	local worn, unreadable = readWorn()
 	if worn ~= nil and same(worn, target) then
 		phase = 'worn'
 		wanted = target
@@ -408,6 +572,7 @@ local function verify()
 		return publish('clothingRestored', true)
 	end
 	if Runtime.NowMs() - appliedAtMs < VERIFY_MS then return end
+	if attempts == 1 or attempts >= RESTORE_ATTEMPTS then diagnose(worn, unreadable) end
 	if attempts < RESTORE_ATTEMPTS then
 		phase = 'waiting'
 		return
@@ -496,7 +661,7 @@ end
 --- @description Starts a world entry: the pristine puppet is dressed again.
 function OpxAppearance.Clothing.EnterWorld()
 	target, attempts, appliedAtMs, holdFromMs = nil, 0, 0, 0
-	candidate = nil
+	candidate, previewOwner = nil, nil
 	phase = (citizen ~= nil and stored ~= nil and enabled()) and 'waiting' or 'idle'
 end
 
@@ -546,9 +711,64 @@ end
 --- @description Answers the clothing phase the state export reports.
 --- @returns {AppearanceClothingPhase}
 function OpxAppearance.Clothing.Report()
+	if previewOwner ~= nil then return 'previewing' end
 	if phase == 'worn' and pending ~= nil then return 'saving' end
 	if phase == 'worn' and not saving then return 'unsaved' end
 	return phase
+end
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.Previewing
+--- @description Whether a resource is trying clothes on the puppet.
+--- @returns {boolean}
+function OpxAppearance.Clothing.Previewing()
+	return previewOwner ~= nil
+end
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.BeginPreview
+--- @description Lends the puppet to a fitting room: nothing is saved or published meanwhile.
+--- @param owner {string}
+--- @returns {table|nil, string|nil}
+function OpxAppearance.Clothing.BeginPreview(owner)
+	if previewOwner ~= nil then return nil, 'preview_busy' end
+	if citizen == nil then return nil, 'no_character' end
+	if stored == nil or not enabled() then return nil, 'clothing_unavailable' end
+	if not saving then return nil, 'clothing_not_saved' end
+	if phase ~= 'worn' or not ready() then return nil, 'clothing_not_ready' end
+	if pending ~= nil then return nil, 'clothing_saving' end
+	local worn, reason = readWorn()
+	if worn == nil then return nil, tostring(reason or 'clothing_unreadable') end
+	previewOwner, candidate = owner, nil
+	Open77.log.info(('%s tries clothes on %s'):format(owner, tostring(citizen)))
+	return worn
+end
+
+--- @author DemiAutomatic
+--- @method OpxAppearance.Clothing.EndPreview
+--- @description Takes the puppet back, saving what it wears or putting the record back on.
+--- @param owner {string}
+--- @param keep {boolean}
+--- @param records {table|nil} The record names the fitting room put on, so they read back by name.
+--- @returns {boolean, string|nil}
+function OpxAppearance.Clothing.EndPreview(owner, keep, records)
+	if previewOwner == nil then return false, 'no_preview' end
+	if previewOwner ~= owner then return false, 'not_owner' end
+	previewOwner = nil
+	if type(records) == 'table' then
+		for _, record in pairs(records) do learn(record) end
+	end
+	if keep then
+		local worn = readWorn()
+		if worn ~= nil and not same(worn, wanted) then
+			candidate, candidateAtMs = worn, Runtime.NowMs() - debounceMs()
+		end
+	else
+		target, attempts, candidate = nil, 0, nil
+		phase = 'waiting'
+	end
+	Open77.log.info(('%s gave the puppet back (%s)'):format(owner, keep and 'kept' or 'restored'))
+	return true
 end
 
 --- @author DemiAutomatic
@@ -556,6 +776,7 @@ end
 --- @description Runs one clothing pass: deadline, put-on, read-back or save.
 function OpxAppearance.Clothing.Check()
 	expire()
+	if previewOwner ~= nil then return end
 	if phase == 'idle' or phase == 'failed' then return end
 	if not ready() then
 		candidate = nil
@@ -580,7 +801,7 @@ AddEventHandler('opx77:client:clothingSaved', function(record)
 	end
 	if pending ~= nil then return end
 	wanted = record
-	if phase == 'worn' or phase == 'failed' then
+	if previewOwner == nil and (phase == 'worn' or phase == 'failed') then
 		Clothing.EnterWorld()
 	end
 end)
@@ -604,4 +825,13 @@ AddEventHandler('opx77:client:refused', function(code, _, operation)
 	if code == 'error.unavailable' then return strike(failed, code) end
 	Open77.log.warn(('clothing save refused: %s'):format(code))
 	publish('clothingSaved', false, code)
+end)
+
+--- @author DemiAutomatic
+--- @event onClientResourceStop
+--- @description Puts the record back on when the fitting room's resource stops.
+--- @param name {string}
+AddEventHandler('onClientResourceStop', function(name)
+	if name ~= previewOwner then return end
+	Clothing.EndPreview(name, false)
 end)

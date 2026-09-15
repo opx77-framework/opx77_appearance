@@ -130,6 +130,13 @@
 ---| "saving"    worn, with a save still unanswered
 ---| "unsaved"   worn, and saves have stopped for this character
 ---| "failed"    it never read back; nothing is saved until the next world entry
+---| "previewing" a fitting room holds the puppet: nothing is saved or published
+
+--- What `beginClothingPreview` answers: what the puppet wears as the preview starts.
+---@class AppearanceClothingPreview : AppearanceResponse
+---@field clothing AppearanceClothing|nil
+---@field family BodyFamily|nil
+---@field citizenId CitizenId|nil
 
 --- Which of this resource's decisions an event reports.
 ---@alias AppearanceEventName

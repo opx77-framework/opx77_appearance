@@ -46,5 +46,34 @@ function OpxAppearance.Clothing.Settled() end
 ---@return AppearanceClothingPhase
 function OpxAppearance.Clothing.Report() end
 
+--- Whether a fitting room holds the puppet.
+---@return boolean
+function OpxAppearance.Clothing.Previewing() end
+
+--- Lends the puppet to `owner`'s fitting room once the clothes are worn and no save is out:
+--- until it is given back, nothing is saved, restored or published. Answers what it wears.
+---@param owner string
+---@return AppearanceClothing|nil, string|nil
+function OpxAppearance.Clothing.BeginPreview(owner) end
+
+--- Takes the puppet back from `owner`: `keep` saves what it wears now, otherwise the record
+--- goes back on. `records` are the names put on, so their TweakDB ids read back by name.
+---@param owner string
+---@param keep boolean
+---@param records table|nil
+---@return boolean, string|nil
+function OpxAppearance.Clothing.EndPreview(owner, keep, records) end
+
+--- Remembers a record name, so the TweakDB id the equipment registry answers for it
+--- (`0x` + length + CRC-32 of the name) reads back as the name.
+---@param record any
+function OpxAppearance.Clothing.Learn(record) end
+
+--- The record name behind a TweakDB id the registry answered: learned names first, then
+--- `Open77.equipment.info`; anything else comes back unchanged.
+---@param value any
+---@return any
+function OpxAppearance.Clothing.Resolve(value) end
+
 --- One clothing pass: the save deadline, then a put-on, a read-back or a save.
 function OpxAppearance.Clothing.Check() end

@@ -9,7 +9,6 @@ local Snapshot = OpxAppearance.Snapshot
 local State = OpxAppearance.State
 local Runtime = OpxAppearance.Runtime
 local Editor = OpxAppearance.Editor
-local Keys = OpxAppearance.Keys
 
 OpxAppearance.Panel = {}
 local Panel = OpxAppearance.Panel
@@ -33,11 +32,6 @@ local MENU_ID = 'appearance'
 --- @type {string}
 --- @description Local event opx77_menu raises for the panel's rows and closes.
 local EVENT = 'opx77_appearance:panel'
-
---- @author DemiAutomatic
---- @type {string}
---- @description Stable mapping id of the panel key, which stores rebinds.
-local KEY_PANEL = 'opx77_appearance.panel'
 
 --- @author DemiAutomatic
 --- @type {integer}
@@ -448,31 +442,4 @@ AddEventHandler(Config.EVENT, function(payload)
 	local name = payload.event
 	if name == 'characterChanged' then return Panel.Close('character_changed') end
 	if name == 'saved' or name == 'restored' or name == 'applied' then Panel.Refresh() end
-end)
-
---- @author DemiAutomatic
---- @method pressed
---- @description Closes any open panel, or opens it for this resource.
-local function pressed()
-	if isOpen() then return Panel.Close('player') end
-	if nativeUp() or Runtime.IsDown() then return end
-	if State.citizenId == nil then return Runtime.Notify('info', 'error.notLoggedIn') end
-	local result = Panel.Open(RESOURCE, nil)
-	if result.ok ~= true then Runtime.Notify('warning', 'appearance.panel.unavailable') end
-end
-
---- @author DemiAutomatic
---- @event onClientResourceStart
---- @description Registers the panel key mapping on this start.
---- @param name {string}
-AddEventHandler('onClientResourceStart', function(name)
-	if name ~= RESOURCE then return end
-	local keys = Config.KEYS
-	if keys ~= nil and type(keys) ~= 'table' then
-		Open77.log.warn('config: KEYS must be a table; using the default key')
-		keys = nil
-	end
-	keys = keys or {}
-	Keys.Register(KEY_PANEL, 'appearance.key.panel', Keys.Setting('KEYS.PANEL', keys.PANEL, 'F5'),
-		pressed)
 end)
