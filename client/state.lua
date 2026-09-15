@@ -113,113 +113,113 @@ State.bootstrapPicking = false
 ---@param snapshot table|nil
 ---@param citizen string|nil
 function State.adopt(snapshot, citizen)
-  if type(snapshot) == "table" then State.canonical = snapshot end
-  if citizen ~= nil then State.citizenId = citizen end
+	if type(snapshot) == 'table' then State.canonical = snapshot end
+	if citizen ~= nil then State.citizenId = citizen end
 end
 
 --- A new restore generation. Answers the token the caller has to carry.
 ---@return integer
 function State.nextRestore()
-  State.restoreToken = State.restoreToken + 1
-  State.bootstrapToken = State.restoreToken
-  State.bootstrapQueued = false
-  State.appearanceConfirmed = false
-  return State.restoreToken
+	State.restoreToken = State.restoreToken + 1
+	State.bootstrapToken = State.restoreToken
+	State.bootstrapQueued = false
+	State.appearanceConfirmed = false
+	return State.restoreToken
 end
 
 --- Whether `token` is still the current restore.
 ---@param token integer
 ---@return boolean
 function State.current(token)
-  return token == State.restoreToken
+	return token == State.restoreToken
 end
 
 --- Whether the puppet is already wearing this character's stored face.
 ---@return boolean
 function State.wearing()
-  return State.appliedCitizen ~= nil and State.appliedCitizen == State.citizenId and
-    Snapshot.same(State.appliedSnapshot, State.canonical)
+	return State.appliedCitizen ~= nil and State.appliedCitizen == State.citizenId and
+		Snapshot.same(State.appliedSnapshot, State.canonical)
 end
 
 --- Record that it is. Called only once an apply has been accepted, never when one is queued.
 function State.wore()
-  State.appliedCitizen = State.citizenId
-  State.appliedSnapshot = State.canonical
+	State.appliedCitizen = State.citizenId
+	State.appliedSnapshot = State.canonical
 end
 
 --- Forget what is on the puppet. A different character is a different face.
 function State.undress()
-  State.appliedCitizen = nil
-  State.appliedSnapshot = nil
+	State.appliedCitizen = nil
+	State.appliedSnapshot = nil
 end
 
 --- Whether every piece of appearance work for this world entry has finished -- committed,
 --- restored, or honestly failed. The gameplay announcement waits on this and nothing else.
 ---@return boolean
 function State.appearanceSettled()
-  if State.citizenId == nil then return false end
-  if not State.settled or State.creating or State.bodyReloading then return false end
-  -- a `needsCreation` still unanswered: the editor may yet come up
-  if State.creationAskedAtMs ~= 0 then return false end
-  if State.commit ~= nil and State.commit.kind == "create" then return false end
-  if State.restoreToken ~= State.restoreSettledToken then return false end
-  -- A queued apply additionally waits on the mirror confirmation and the player reset; a
-  -- FAILED apply is an honest settled state and must not strand the player behind the gate.
-  if State.bootstrapToken == State.restoreToken and State.bootstrapQueued then
-    return State.appearanceConfirmed and State.playerResetDone
-  end
-  return true
+	if State.citizenId == nil then return false end
+	if not State.settled or State.creating or State.bodyReloading then return false end
+	-- a `needsCreation` still unanswered: the editor may yet come up
+	if State.creationAskedAtMs ~= 0 then return false end
+	if State.commit ~= nil and State.commit.kind == 'create' then return false end
+	if State.restoreToken ~= State.restoreSettledToken then return false end
+	-- A queued apply additionally waits on the mirror confirmation and the player reset; a
+	-- FAILED apply is an honest settled state and must not strand the player behind the gate.
+	if State.bootstrapToken == State.restoreToken and State.bootstrapQueued then
+		return State.appearanceConfirmed and State.playerResetDone
+	end
+	return true
 end
 
 --- Everything a new world entry invalidates. The character itself survives it.
 function State.enterWorld()
-  -- the pristine puppet of a new world wears nothing this client put on the last one
-  if OpxAppearance.clothing then OpxAppearance.clothing.enterWorld() end
-  State.settled = false
-  State.gameplayAnnounced = false
-  State.bootstrapToken = nil
-  State.bootstrapQueued = false
-  State.appearanceConfirmed = false
-  State.playerResetDone = false
-  State.restoreAttempts = 0
+	-- the pristine puppet of a new world wears nothing this client put on the last one
+	if OpxAppearance.clothing then OpxAppearance.clothing.enterWorld() end
+	State.settled = false
+	State.gameplayAnnounced = false
+	State.bootstrapToken = nil
+	State.bootstrapQueued = false
+	State.appearanceConfirmed = false
+	State.playerResetDone = false
+	State.restoreAttempts = 0
 end
 
 --- The character went. Everything about a face belongs to a character, so all of it goes.
 function State.unload()
-  State.citizenId = nil
-  State.family = nil
-  State.canonical = nil
-  State.editing = false
-  State.creating = false
-  State.creatorUp = false
-  State.commit = nil
-  State.creationRefused = false
-  State.creationAskedAtMs = 0
-  State.creationWarned = false
-  State.familyAttempts = 0
-  State.buildWarned = false
-  State.settled = false
-  State.undress()
-  State.enterWorld()
+	State.citizenId = nil
+	State.family = nil
+	State.canonical = nil
+	State.editing = false
+	State.creating = false
+	State.creatorUp = false
+	State.commit = nil
+	State.creationRefused = false
+	State.creationAskedAtMs = 0
+	State.creationWarned = false
+	State.familyAttempts = 0
+	State.buildWarned = false
+	State.settled = false
+	State.undress()
+	State.enterWorld()
 end
 
 --- What `report` publishes: enough to debug a face that did not come back, and nothing a
 --- caller could mistake for authority.
 ---@return table
 function State.report()
-  return {
-    citizenId = State.citizenId,
-    family = State.family,
-    stored = State.canonical ~= nil,
-    wearing = State.wearing(),
-    decided = State.settled,
-    settled = State.appearanceSettled(),
-    restoring = State.restoreToken ~= State.restoreSettledToken,
-    committing = State.commit ~= nil,
-    creating = State.creating,
-    editing = State.editing,
-    worldEligible = State.worldEligible,
-    announced = State.gameplayAnnounced,
-    bodyReloading = State.bodyReloading,
-  }
+	return {
+		citizenId = State.citizenId,
+		family = State.family,
+		stored = State.canonical ~= nil,
+		wearing = State.wearing(),
+		decided = State.settled,
+		settled = State.appearanceSettled(),
+		restoring = State.restoreToken ~= State.restoreSettledToken,
+		committing = State.commit ~= nil,
+		creating = State.creating,
+		editing = State.editing,
+		worldEligible = State.worldEligible,
+		announced = State.gameplayAnnounced,
+		bodyReloading = State.bodyReloading,
+	}
 end
