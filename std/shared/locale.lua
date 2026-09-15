@@ -14,10 +14,6 @@ function OpxAppearance.Locale.register(code, strings) end
 ---@return boolean applied
 function OpxAppearance.Locale.Set(code) end
 
---- The code of the catalogue player-facing text is read from.
----@return string
-function OpxAppearance.Locale.Current() end
-
 --- Whether the active catalogue or the `en` fallback carries `key`.
 ---@param key string
 ---@return boolean

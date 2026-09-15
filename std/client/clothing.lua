@@ -15,11 +15,6 @@ OpxAppearance.Clothing.OUTFIT_SLOTS = {}
 ---@type AppearanceClothing
 OpxAppearance.Clothing.DEFAULT = {}
 
---- Any clothing-shaped table in opx77_core's canonical form: nine slots stated, outfit keys
---- `"0"` to `"6"`, empty outfits dropped.
----@type fun(value: any): AppearanceClothing|nil
-OpxAppearance.Clothing.Normalize = nil
-
 --- Whether two plain values are equal, tables compared by content. Used on normalized clothing
 --- records and on published looks.
 ---@type fun(left: any, right: any): boolean

@@ -186,7 +186,6 @@ local function normalize(value)
 	end
 	return out
 end
-OpxAppearance.Clothing.Normalize = normalize
 
 --- @author DemiAutomatic
 --- @method same

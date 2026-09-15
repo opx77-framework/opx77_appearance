@@ -151,7 +151,6 @@ local function bootstrapPhase()
 	local ok, bootstrap = pcall(Open77.session.characterBootstrap)
 	return ok and type(bootstrap) == 'table' and tostring(bootstrap.phase) or 'unreadable'
 end
-OpxAppearance.Runtime.BootstrapPhase = bootstrapPhase
 
 --- @author DemiAutomatic
 --- @method playerResetPhase

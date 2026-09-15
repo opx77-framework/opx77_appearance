@@ -62,14 +62,6 @@ function OpxAppearance.Locale.Set(code)
 end
 
 --- @author DemiAutomatic
---- @method OpxAppearance.Locale.Current
---- @description Answers the language player-facing text is read from.
---- @returns {string}
-function OpxAppearance.Locale.Current()
-	return active
-end
-
---- @author DemiAutomatic
 --- @method OpxAppearance.Locale.Exists
 --- @description Whether the active or fallback catalogue carries a key.
 --- @param key {string}

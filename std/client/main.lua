@@ -11,10 +11,6 @@ OpxAppearance.Runtime.NowMs = nil
 ---@type fun(): boolean
 OpxAppearance.Runtime.InGameplay = nil
 
---- The host's character bootstrap phase, or `"unreadable"`.
----@type fun(): string
-OpxAppearance.Runtime.BootstrapPhase = nil
-
 --- The host's pristine player reset phase (`"complete"` once run), nil where none is projected.
 ---@type fun(): string|nil
 OpxAppearance.Runtime.PlayerResetPhase = nil
