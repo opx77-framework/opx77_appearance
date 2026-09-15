@@ -36,6 +36,7 @@
 ---| "body_family_mismatch" the creation editor could not be kept on the right body  (client)
 ---| "clothing_not_restored" the stored clothing never read back on the puppet     (client)
 ---| "appearance.invalid"   opx77_core could not read the snapshot                    (core)
+---| "appearance.stale"     a face captured for the character before a switch         (core)
 ---| "appearance.tooLarge"  the JSON document is over the core's limit                (core)
 ---| "error.badRequest"     the payload was not a table                               (core)
 ---| "error.notLoggedIn"    no character loaded on the core for this connection       (core)

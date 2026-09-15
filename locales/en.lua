@@ -33,6 +33,7 @@ OpxAppearance.Locale.register('en', {
 	['appearance.clothingNotSaved'] = 'Your clothes are not being saved right now: {reason}',
 
 	['appearance.invalid'] = 'That appearance could not be read.',
+	['appearance.stale'] = 'That appearance was captured for another character and was not saved.',
 	['appearance.tooLarge'] = 'That appearance is too large to store.',
 	['error.badRequest'] = 'That request was not understood.',
 	['error.unavailable'] = 'That is unavailable right now.',

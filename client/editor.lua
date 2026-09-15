@@ -33,6 +33,7 @@ local lastSaveAtMs = 0
 --- @description Every code opx77_core answers a face save with.
 local REFUSALS = {
 	['appearance.invalid'] = true,
+	['appearance.stale'] = true,
 	['appearance.tooLarge'] = true,
 	['error.badRequest'] = true,
 	['error.notLoggedIn'] = true,
@@ -64,6 +65,7 @@ end
 --- @param onNotSent {fun(reason: string)}
 local function send(payload, kind, onNotSent)
 	State.commit = { kind = kind, deadlineMs = 0 }
+	local citizen = State.citizenId
 	CreateThread(function()
 		local idle = Config.SAVE_COOLDOWN_MS - (Runtime.NowMs() - lastSaveAtMs)
 		if idle > 0 then Wait(idle) end
@@ -71,7 +73,7 @@ local function send(payload, kind, onNotSent)
 		lastSaveAtMs = Runtime.NowMs()
 		State.commit.deadlineMs = Runtime.NowMs() + Config.COMMIT_MS
 		local sent, reason = TriggerServerEvent('opx77:server:saveAppearance',
-			{ snapshot = payload })
+			{ snapshot = payload, citizenId = citizen })
 		if sent then return end
 		State.commit = nil
 		onNotSent(tostring(reason or 'not_sent'))

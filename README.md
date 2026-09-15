@@ -374,16 +374,18 @@ where another resource hands looks out.
 The client captures the mirror and sends one net event to the core:
 
 ```lua
-TriggerServerEvent("opx77:server:saveAppearance", { snapshot = snapshot })
+TriggerServerEvent("opx77:server:saveAppearance", { snapshot = snapshot, citizenId = citizenId })
 ```
 
 The core takes the character from the connection — never from the payload — validates the
-snapshot, writes it, and publishes it back. There is a **2000 ms cooldown** on that event, key
+snapshot, writes it, and publishes it back. `citizenId` is the character the face was captured
+for: it only makes the core refuse a save that arrives after a character switch, with
+`appearance.stale`, and a core that does not check it yet ignores it. There is a **2000 ms cooldown** on that event, key
 `appearance.request`; this resource waits it out rather than tripping it.
 
 | Direction | Channel |
 |---|---|
-| write | `opx77:server:saveAppearance`, payload `{ snapshot = … }` |
+| write | `opx77:server:saveAppearance`, payload `{ snapshot = …, citizenId = … }` |
 | refusal | `opx77:client:notify` → `OPX.Events.Local.REFUSED`, carrying a code and the request
 it answers |
 | read | `PlayerData.appearance`, so it arrives with `opx77:client:onPlayerLoaded` |
@@ -394,10 +396,11 @@ A refusal carries the request it answers as well as a code, and only one naming
 `saveAppearance` is this resource's: an `error.tooFast` raised by a character selection or a
 vehicle spawn is left alone rather than taken for the answer to a capture still in flight.
 
-The six codes that request can be refused with are `appearance.invalid`,
-`appearance.tooLarge`, `error.badRequest`, `error.notLoggedIn`, `error.tooFast` and
-`error.unavailable`, which is what the core's storage failures are mapped to. This resource's
-catalogue carries all six, so every one of them is shown in the player's language.
+The seven codes that request can be refused with are `appearance.invalid`,
+`appearance.stale`, `appearance.tooLarge`, `error.badRequest`, `error.notLoggedIn`,
+`error.tooFast` and `error.unavailable`, which is what the core's storage failures are mapped
+to. This resource's catalogue carries all seven, so every one of them is shown in the player's
+language.
 
 A confirm that did not change anything is completed on the client: the core writes nothing and
 publishes nothing for a face identical to the stored one, so waiting for an answer would time

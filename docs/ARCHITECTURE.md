@@ -76,7 +76,7 @@ Aucune `dependency` n'est déclarée : `opx77_core`, `opx77_menu` et `opx77_noti
   n'expose rien qu'un appelant pourrait prendre pour une autorité. Son champ `body` vient de
   `Runtime.BodyFamily` plutôt que de l'état : après un redémarrage, seul le bootstrap le sait
   encore.
-- **Événements vers `opx77_core`** : `opx77:server:saveAppearance { snapshot }` et
+- **Événements vers `opx77_core`** : `opx77:server:saveAppearance { snapshot, citizenId }` et
   `opx77:server:saveClothing { citizenId, clothing }`. Réponses : `opx77:client:appearanceSaved`,
   `opx77:client:clothingSaved`, et `opx77:client:refused (code, _, operation)`. L'opération décide
   à qui est le refus : le core refuse une sélection de personnage ou un spawn de véhicule avec les
@@ -230,7 +230,9 @@ personnage effacé.
 
 `send` attend le cooldown du core (`SAVE_COOLDOWN_MS`) au lieu de le déclencher : un refus pour
 aller trop vite coûterait la capture. Le délai du commit reste à 0 tant que l'événement n'est pas
-parti, pour que le worker ne l'expire pas pendant l'attente. Le core n'écrit ni ne publie rien pour
+parti, pour que le worker ne l'expire pas pendant l'attente. Le `citizenId` envoyé est lu avant
+cette attente, au moment de la capture : le core refuse `appearance.stale` quand un changement de
+personnage est passé entre les deux, au lieu d'écrire le visage sur le suivant. Le core n'écrit ni ne publie rien pour
 un visage identique au stocké : une confirmation inchangée est donc terminée ici, sinon elle
 expirerait sur un enregistrement correct. `opx77:client:appearanceSaved` est la seule confirmation
 qui existe ; un visage stocké par autre chose que ce client est remis sur le puppet.
@@ -383,7 +385,8 @@ visage, sans les métadonnées d'éditeur que le codec de valeurs du runtime ne 
 ## Clés résolues à l'exécution
 
 - `Locale.Exists(code)`, dans le gestionnaire `opx77:client:refused` de `client/editor.lua`,
-  affiche un refus de `saveAppearance` dans la langue du joueur : `appearance.invalid`, `appearance.tooLarge`, `error.badRequest`,
+  affiche un refus de `saveAppearance` dans la langue du joueur : `appearance.invalid`,
+  `appearance.stale`, `appearance.tooLarge`, `error.badRequest`,
   `error.notLoggedIn`, `error.tooFast`, `error.unavailable`. Le core mappe une panne de stockage
   sur `error.unavailable` avant de l'envoyer.
 - Les refus de `saveClothing` (`clothing.invalid`, `clothing.tooLarge`, `clothing.stale`...) ne
