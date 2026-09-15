@@ -107,7 +107,8 @@ In `0.9.0` `state` reports one more field, `clothing`, and two events are new,
 In `0.10.0` `isOpen`, `openEditor` and `openCreator` no longer raise when the engine cannot say
 whether a native modal is up: `isOpen` answers `open = true` and the other two
 `appearance_busy`, as the panel already did. A character unloaded while its face was still being
-restored no longer gets that face, or a "could not be restored" toast, afterwards.
+restored no longer gets that face, or a "could not be restored" toast, afterwards. An
+`opx77_core` stop with a character loaded is handled as that character unloading.
 
 `isSettled` is the gate question — is this world entry's face done, and if not what is it
 waiting on. `state` is the diagnostic report behind it. Every export answers a table carrying
@@ -171,7 +172,8 @@ close *before* the mirror is asked for; reopen the panel afterwards.
 
 One panel at a time, keyed on `GetInvokingResource()`. A second resource is refused with
 `panel_busy`; the owner calling `openPanel` again redraws its own. The panel closes itself
-when its owner stops or reloads, when the character changes or unloads, on Escape and the
+when its owner stops or reloads, when the character changes or unloads (an `opx77_core` stop
+counts as an unload), on Escape and the
 pause key, and on BACK at the top of the list.
 
 `panelOpened` and `panelClosed` reach `OPX_APPEARANCE_CONFIG.EVENT` like every other decision
@@ -360,7 +362,8 @@ them runs beside this resource, which does all of it, in `client/presence.lua` a
   `onPlayerBucketChange` the server hands the player and everybody already in that bucket each
   other's looks again, as the platform does, and ignores a move another one has superseded.
 - **A body reload** withdraws the body first: observers drop their proxy, and get the new body
-  with the publication that follows the reload. A character unloading withdraws it too.
+  with the publication that follows the reload. A character unloading withdraws it too, and so
+  does `opx77_core` stopping with a character loaded, since a stopped core raises no unload.
 - **Nothing is stored.** A look lives in the server's memory until the player leaves.
 
 What is checked is the shape, not the truth: a client can only ever describe its own player,

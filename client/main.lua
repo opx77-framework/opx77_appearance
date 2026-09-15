@@ -833,13 +833,20 @@ AddEventHandler('opx77:client:playerDataChanged', function(playerData)
 end)
 
 --- @author DemiAutomatic
---- @event opx77:client:onPlayerUnloaded
---- @description Forgets the character's face and clothing, releasing any native transaction.
-AddEventHandler('opx77:client:onPlayerUnloaded', function()
+--- @method unloadCharacter
+--- @description Forgets the character, its transaction, clothing, panel and published body.
+local function unloadCharacter()
 	State.Unload()
 	Runtime.FinishMutation()
 	if OpxAppearance.Clothing then OpxAppearance.Clothing.Unload() end
-end)
+	if OpxAppearance.Panel then OpxAppearance.Panel.Close('no_character') end
+	if OpxAppearance.Presence then OpxAppearance.Presence.Withdraw() end
+end
+
+--- @author DemiAutomatic
+--- @event opx77:client:onPlayerUnloaded
+--- @description Forgets the character opx77_core unloaded.
+AddEventHandler('opx77:client:onPlayerUnloaded', unloadCharacter)
 
 --- @author DemiAutomatic
 --- @method catchUp
@@ -881,9 +888,13 @@ end)
 
 --- @author DemiAutomatic
 --- @event onClientResourceStop
---- @description Releases the native mutation transaction when this resource stops.
+--- @description Releases the transaction on this stop; an opx77_core stop is an unload.
 --- @param name {string}
 AddEventHandler('onClientResourceStop', function(name)
+	if name == CORE then
+		if State.citizenId ~= nil then unloadCharacter() end
+		return
+	end
 	if name ~= RESOURCE then return end
 	Runtime.FinishMutation()
 end)

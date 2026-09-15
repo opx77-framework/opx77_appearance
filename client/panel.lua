@@ -442,10 +442,3 @@ AddEventHandler(Config.EVENT, function(payload)
 	if name == 'characterChanged' then return Panel.Close('character_changed') end
 	if name == 'saved' or name == 'restored' or name == 'applied' then Panel.Refresh() end
 end)
-
---- @author DemiAutomatic
---- @event opx77:client:onPlayerUnloaded
---- @description Takes the panel down when the character unloads.
-AddEventHandler('opx77:client:onPlayerUnloaded', function()
-	Panel.Close('no_character')
-end)

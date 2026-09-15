@@ -25,8 +25,9 @@ Côté client, l'ordre porte : `client/snapshot.lua` crée `OpxAppearance.Snapsh
 d'emplacements (`SLOTS`, `OUTFIT_SLOTS`), l'enregistrement par défaut (`DEFAULT`, jamais écrit),
 l'égalité par contenu (`Same`) et le test de famille d'un objet (`Fits`) ; `client/exports.lua` est
 le dernier, puisque publier la surface lit tout le reste.
-`State.EnterWorld` et `SwitchBody` lisent `OpxAppearance.Clothing` et `OpxAppearance.Presence`
-au moment de l'appel, avec une garde, parce que ces modules chargent après eux.
+`State.EnterWorld`, `SwitchBody` et `unloadCharacter` lisent `OpxAppearance.Clothing`,
+`OpxAppearance.Panel` et `OpxAppearance.Presence` au moment de l'appel, avec une garde, parce que
+ces modules chargent après eux.
 
 `server/presence.lua` est la seule moitié serveur : elle fait passer le look de chaque joueur aux
 autres, comme `open77_appearance` et ses relais `open77_equipment` / `open77_wardrobe`, et ne
@@ -82,6 +83,12 @@ Aucune `dependency` n'est déclarée : `opx77_core`, `opx77_menu` et `opx77_noti
   à qui est le refus : le core refuse une sélection de personnage ou un spawn de véhicule avec les
   mêmes codes (`error.tooFast`), donc `client/editor.lua` ne prend que `saveAppearance`
   (`OPX.Operations.SAVE_APPEARANCE`) et `client/clothing.lua` que `saveClothing`.
+- **Déchargement** : `unloadCharacter` (`client/main.lua`) oublie le personnage (`State.Unload`),
+  libère la transaction native, oublie les vêtements, retire le panneau (`no_character`) et le
+  corps publié, dans cet ordre. Il sert `opx77:client:onPlayerUnloaded` et l'arrêt
+  d'`opx77_core` (`onClientResourceStop`), qui ne lève aucun déchargement : sans cela un
+  redémarrage du core laisserait le visage, le panneau et le look d'un personnage que plus rien
+  ne tient. Un arrêt du core sans personnage chargé ne fait rien.
 - **Messages au joueur** : `Runtime.Notify` lève un toast `opx77_notify` sous un seul id,
   `opx77_appearance`, avec `replace`, et le titre `appearance.title` du catalogue : un message
   remplace le précédent au lieu de s'empiler. `NOTIFY = false`, ou un toast qui ne part pas

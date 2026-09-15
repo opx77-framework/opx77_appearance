@@ -330,11 +330,6 @@ end)
 AddEventHandler('open77:worldReady', Presence.Renew)
 
 --- @author DemiAutomatic
---- @event opx77:client:onPlayerUnloaded
---- @description Withdraws the body of the character that unloaded.
-AddEventHandler('opx77:client:onPlayerUnloaded', Presence.Withdraw)
-
---- @author DemiAutomatic
 --- @event onClientResourceStart
 --- @description Starts presence over when this resource starts.
 --- @param name {string}
